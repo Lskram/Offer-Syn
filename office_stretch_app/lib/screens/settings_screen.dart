@@ -120,7 +120,7 @@ class SettingsScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  'ช่วงเวลาแจ้งเตือนไม่ถูกต้อง ต้องตั้งเวลาเริ่มให้น้อยกว่าเวลาหยุด เช่น 08:00 ถึง 16:30',
+                  'ช่วงเวลาแจ้งเตือนไม่ถูกต้อง เวลาเริ่มและเวลาหยุดต้องไม่ตรงกัน เช่น 08:00 ถึง 16:30 หรือ 18:00 ถึง 02:00',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                   ),

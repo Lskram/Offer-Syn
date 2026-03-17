@@ -122,9 +122,7 @@ class AppState extends ChangeNotifier {
 
   void updateInterval(int minutes) {
     _settings = _settings.copyWith(intervalMinutes: minutes);
-    _nextReminderAt = _normalizedReminder(
-      DateTime.now().add(Duration(minutes: minutes)),
-    );
+    _nextReminderAt = _recalculateNextReminderFromNow();
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
@@ -134,7 +132,7 @@ class AppState extends ChangeNotifier {
       activeStart: start ?? _settings.activeStart,
       activeEnd: end ?? _settings.activeEnd,
     );
-    _nextReminderAt = _normalizedReminder(_nextReminderAt);
+    _nextReminderAt = _recalculateNextReminderFromNow();
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
@@ -220,14 +218,16 @@ class AppState extends ChangeNotifier {
   }
 
   DateTime _defaultNextReminder() {
-    return _normalizedReminder(
-      DateTime.now().add(Duration(minutes: _settings.intervalMinutes)),
-    );
+    return _recalculateNextReminderFromNow();
   }
 
   DateTime _normalizedReminder(DateTime requestedReminder) {
     if (!hasValidReminderWindow) {
       return requestedReminder;
+    }
+
+    if (requestedReminder.isBefore(DateTime.now())) {
+      return _recalculateNextReminderFromNow();
     }
 
     final schedule = ReminderTimeline.buildSchedule(
@@ -237,5 +237,13 @@ class AppState extends ChangeNotifier {
       horizon: const Duration(days: 2),
     );
     return schedule.isEmpty ? requestedReminder : schedule.first;
+  }
+
+  DateTime _recalculateNextReminderFromNow() {
+    if (!hasValidReminderWindow) {
+      return DateTime.now();
+    }
+
+    return ReminderTimeline.nextAlignedSlotAtOrAfter(DateTime.now(), _settings);
   }
 }
