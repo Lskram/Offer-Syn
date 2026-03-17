@@ -69,6 +69,19 @@ The smoke test runs on the emulator and verifies:
 
 The integration test file is [app_smoke_test.dart](C:/Users/UsEr/OneDrive/Documents/Playground/office_stretch_app/integration_test/app_smoke_test.dart).
 
+## Tester build
+
+```powershell
+cd office_stretch_app
+.\scripts\build-tester-apk.ps1
+```
+
+The script builds a release APK for internal testing and copies it to:
+
+`office_stretch_app/artifacts/office-stretch-tester.apk`
+
+Tester instructions live in [tester-checklist-th.md](C:/Users/UsEr/OneDrive/Documents/Playground/office_stretch_app/docs/tester-checklist-th.md).
+
 ## Build note
 
 Run `.\scripts\run-android.ps1` and `.\scripts\smoke-test-android.ps1` one at a time. Running both at the same time can corrupt or lock the Android Gradle/Kotlin build caches in the redirected build directory.
