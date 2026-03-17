@@ -1,0 +1,36 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import 'app/app.dart';
+import 'app/app_state.dart';
+import 'services/app_persistence.dart';
+import 'services/reminder_scheduler.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final appState = AppState(
+    persistence: SharedPreferencesAppPersistence(),
+    reminderScheduler: _createReminderScheduler(),
+  );
+  await appState.initialize();
+
+  runApp(OfficeStretchApp(appState: appState));
+}
+
+ReminderScheduler _createReminderScheduler() {
+  if (kIsWeb) {
+    return const NoopReminderScheduler();
+  }
+
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.macOS:
+      return LocalNotificationReminderScheduler();
+    case TargetPlatform.fuchsia:
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return const NoopReminderScheduler();
+  }
+}
