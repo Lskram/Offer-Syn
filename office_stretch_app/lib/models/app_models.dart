@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 const defaultReminderSettings = ReminderSettings(
   notificationsEnabled: true,
   soundEnabled: true,
+  vibrationEnabled: true,
   activeStart: TimeOfDay(hour: 8, minute: 0),
   activeEnd: TimeOfDay(hour: 16, minute: 30),
   intervalMinutes: 60,
@@ -92,7 +93,7 @@ extension StretchHabitX on StretchHabit {
   }
 }
 
-enum ExerciseStatus { done, skipped, snoozed }
+enum ExerciseStatus { done, skipped, snoozed, missed }
 
 extension ExerciseStatusX on ExerciseStatus {
   String get label {
@@ -103,6 +104,8 @@ extension ExerciseStatusX on ExerciseStatus {
         return 'ข้าม';
       case ExerciseStatus.snoozed:
         return 'เลื่อนเวลา';
+      case ExerciseStatus.missed:
+        return 'พลาดการแจ้งเตือน';
     }
   }
 }
@@ -182,17 +185,20 @@ class ExerciseLog {
     required this.exerciseName,
     required this.status,
     required this.occurredAt,
+    this.reminderAt,
   });
 
   final String exerciseName;
   final ExerciseStatus status;
   final DateTime occurredAt;
+  final DateTime? reminderAt;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'exerciseName': exerciseName,
       'status': status.name,
       'occurredAt': occurredAt.toIso8601String(),
+      'reminderAt': reminderAt?.toIso8601String(),
     };
   }
 
@@ -201,6 +207,9 @@ class ExerciseLog {
       exerciseName: json['exerciseName']! as String,
       status: ExerciseStatus.values.byName(json['status']! as String),
       occurredAt: DateTime.parse(json['occurredAt']! as String),
+      reminderAt: json['reminderAt'] == null
+          ? null
+          : DateTime.parse(json['reminderAt']! as String),
     );
   }
 }
@@ -209,24 +218,33 @@ class ReminderSettings {
   const ReminderSettings({
     required this.notificationsEnabled,
     required this.soundEnabled,
+    required this.vibrationEnabled,
     required this.activeStart,
     required this.activeEnd,
     required this.intervalMinutes,
+    this.notificationSoundUri,
+    this.notificationSoundLabel,
   });
 
   final bool notificationsEnabled;
   final bool soundEnabled;
+  final bool vibrationEnabled;
   final TimeOfDay activeStart;
   final TimeOfDay activeEnd;
   final int intervalMinutes;
+  final String? notificationSoundUri;
+  final String? notificationSoundLabel;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'notificationsEnabled': notificationsEnabled,
       'soundEnabled': soundEnabled,
+      'vibrationEnabled': vibrationEnabled,
       'activeStartMinutes': _toMinutes(activeStart),
       'activeEndMinutes': _toMinutes(activeEnd),
       'intervalMinutes': intervalMinutes,
+      'notificationSoundUri': notificationSoundUri,
+      'notificationSoundLabel': notificationSoundLabel,
     };
   }
 
@@ -234,25 +252,39 @@ class ReminderSettings {
     return ReminderSettings(
       notificationsEnabled: json['notificationsEnabled']! as bool,
       soundEnabled: json['soundEnabled']! as bool,
+      vibrationEnabled: json['vibrationEnabled'] as bool? ?? true,
       activeStart: _fromMinutes(json['activeStartMinutes']! as int),
       activeEnd: _fromMinutes(json['activeEndMinutes']! as int),
       intervalMinutes: json['intervalMinutes']! as int,
+      notificationSoundUri: json['notificationSoundUri'] as String?,
+      notificationSoundLabel: json['notificationSoundLabel'] as String?,
     );
   }
 
   ReminderSettings copyWith({
     bool? notificationsEnabled,
     bool? soundEnabled,
+    bool? vibrationEnabled,
     TimeOfDay? activeStart,
     TimeOfDay? activeEnd,
     int? intervalMinutes,
+    String? notificationSoundUri,
+    String? notificationSoundLabel,
+    bool clearNotificationSound = false,
   }) {
     return ReminderSettings(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       soundEnabled: soundEnabled ?? this.soundEnabled,
+      vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
       activeStart: activeStart ?? this.activeStart,
       activeEnd: activeEnd ?? this.activeEnd,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+      notificationSoundUri: clearNotificationSound
+          ? null
+          : notificationSoundUri ?? this.notificationSoundUri,
+      notificationSoundLabel: clearNotificationSound
+          ? null
+          : notificationSoundLabel ?? this.notificationSoundLabel,
     );
   }
 

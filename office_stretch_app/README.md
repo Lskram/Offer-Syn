@@ -22,13 +22,18 @@ Flutter MVP scaffold for an office stretching app focused on people who work in 
 
 ## Android reminder behavior
 
-- Reminders are scheduled with `AndroidScheduleMode.inexactAllowWhileIdle`.
+- Reminders now prefer `AndroidScheduleMode.exactAllowWhileIdle` when the app has exact-alarm access.
+- If exact alarms are not available, the app falls back to `AndroidScheduleMode.inexactAllowWhileIdle`.
 - They can still appear while the screen is off or while the user is in another app.
-- Delivery time is not exact. Android may delay reminders because of Doze mode, OEM battery restrictions, or notification settings.
-- The onboarding screen now includes a reminder checklist, and the Settings screen includes a readiness card with:
+- Delivery time may still be delayed by Doze mode, OEM battery restrictions, muted notification channels, or user notification settings.
+- The Settings screen now includes:
   - notification permission status
   - battery optimization status
+  - exact alarm status
+  - a 1-minute interval option for testing
   - shortcuts to Android notification and battery settings
+  - a system sound picker plus vibration toggle
+- Missed reminders are recorded in the daily activity log once the app resumes and detects that a full reminder window passed without any completed exercise.
 
 For reliable behavior on a real device, allow notifications and set the app battery mode to `Unrestricted` when the device vendor supports that option.
 

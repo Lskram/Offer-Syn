@@ -70,6 +70,35 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
           ],
+          if (appState.hasMissedRemindersToday) ...[
+            Card(
+              key: AppKeys.homeMissedReminderCard,
+              color: theme.colorScheme.tertiaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'มีรอบที่พลาดวันนี้',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'วันนี้พลาดการแจ้งเตือน ${appState.missedRemindersToday} รอบ ระบบบันทึกไว้ในประวัติรายวันแล้ว',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -115,6 +144,13 @@ class HomeScreen extends StatelessWidget {
                       label: appState.settings.notificationsEnabled
                           ? 'ครั้งถัดไป $nextReminderText'
                           : 'ปิดการแจ้งเตือนอยู่',
+                    ),
+                    _StatChip(
+                      icon: appState.reminderDiagnostics.usesExactScheduling
+                          ? Icons.track_changes_outlined
+                          : Icons.timelapse_outlined,
+                      label:
+                          'โหมด ${appState.reminderDiagnostics.scheduleModeLabel}',
                     ),
                   ],
                 ),
@@ -266,6 +302,8 @@ class HomeScreen extends StatelessWidget {
                           ExerciseStatus.done => Icons.check_circle_outline,
                           ExerciseStatus.skipped => Icons.fast_forward_outlined,
                           ExerciseStatus.snoozed => Icons.snooze_outlined,
+                          ExerciseStatus.missed =>
+                            Icons.notification_important_outlined,
                         }),
                         title: Text(log.exerciseName),
                         subtitle: Text('$time • ${log.status.label}'),

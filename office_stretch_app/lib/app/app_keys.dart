@@ -25,6 +25,9 @@ abstract final class AppKeys {
   static const homeScreen = ValueKey<String>('screen.home');
   static const homeStartProgram = ValueKey<String>('home.startProgram');
   static const homeSnoozeReminder = ValueKey<String>('home.snoozeReminder');
+  static const homeMissedReminderCard = ValueKey<String>(
+    'home.missedReminderCard',
+  );
 
   static const libraryScreen = ValueKey<String>('screen.library');
 
@@ -39,6 +42,14 @@ abstract final class AppKeys {
     'settings.notificationsEnabled',
   );
   static const settingsSoundEnabled = ValueKey<String>('settings.soundEnabled');
+  static const settingsVibrationEnabled = ValueKey<String>(
+    'settings.vibrationEnabled',
+  );
+  static const settingsPickSound = ValueKey<String>('settings.pickSound');
+  static const settingsResetSound = ValueKey<String>('settings.resetSound');
+  static const settingsRequestExactAlarm = ValueKey<String>(
+    'settings.requestExactAlarm',
+  );
   static const settingsIntervalMinutes = ValueKey<String>(
     'settings.intervalMinutes',
   );

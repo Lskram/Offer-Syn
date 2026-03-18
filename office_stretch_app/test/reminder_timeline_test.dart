@@ -8,6 +8,7 @@ void main() {
     const settings = ReminderSettings(
       notificationsEnabled: true,
       soundEnabled: true,
+      vibrationEnabled: true,
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 16, minute: 30),
       intervalMinutes: 60,
@@ -36,6 +37,7 @@ void main() {
     const settings = ReminderSettings(
       notificationsEnabled: true,
       soundEnabled: true,
+      vibrationEnabled: true,
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 16, minute: 30),
       intervalMinutes: 45,
@@ -66,6 +68,7 @@ void main() {
     const settings = ReminderSettings(
       notificationsEnabled: true,
       soundEnabled: true,
+      vibrationEnabled: true,
       activeStart: TimeOfDay(hour: 18, minute: 0),
       activeEnd: TimeOfDay(hour: 23, minute: 59),
       intervalMinutes: 45,
@@ -86,6 +89,7 @@ void main() {
     const settings = ReminderSettings(
       notificationsEnabled: true,
       soundEnabled: true,
+      vibrationEnabled: true,
       activeStart: TimeOfDay(hour: 18, minute: 0),
       activeEnd: TimeOfDay(hour: 2, minute: 0),
       intervalMinutes: 60,
@@ -106,6 +110,7 @@ void main() {
     const settings = ReminderSettings(
       notificationsEnabled: true,
       soundEnabled: true,
+      vibrationEnabled: true,
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 8, minute: 0),
       intervalMinutes: 60,

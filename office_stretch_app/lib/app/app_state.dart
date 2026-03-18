@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -6,17 +7,25 @@ import '../data/exercise_catalog.dart';
 import '../models/app_models.dart';
 import '../models/persisted_app_data.dart';
 import '../models/reminder_diagnostics.dart';
+import '../models/system_notification_sound.dart';
 import '../services/app_persistence.dart';
 import '../services/reminder_scheduler.dart';
 import '../services/reminder_timeline.dart';
 
+typedef NowGetter = DateTime Function();
+
 class AppState extends ChangeNotifier {
-  AppState({AppPersistence? persistence, ReminderScheduler? reminderScheduler})
-    : _persistence = persistence ?? InMemoryAppPersistence(),
-      _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler();
+  AppState({
+    AppPersistence? persistence,
+    ReminderScheduler? reminderScheduler,
+    NowGetter? now,
+  }) : _persistence = persistence ?? InMemoryAppPersistence(),
+       _reminderScheduler = reminderScheduler ?? const NoopReminderScheduler(),
+       _now = now ?? DateTime.now;
 
   final AppPersistence _persistence;
   final ReminderScheduler _reminderScheduler;
+  final NowGetter _now;
 
   UserProfile? _profile;
   ExerciseProgram? _activeProgram;
@@ -26,6 +35,9 @@ class AppState extends ChangeNotifier {
   ReminderDiagnostics _reminderDiagnostics =
       const ReminderDiagnostics.unsupported();
   Future<void> _sideEffects = Future<void>.value();
+  StreamSubscription<String?>? _notificationResponseSubscription;
+  bool _hasPendingProgramLaunch = false;
+  int _programLaunchSequence = 0;
 
   bool get hasCompletedOnboarding => _profile != null;
   UserProfile? get profile => _profile;
@@ -38,6 +50,20 @@ class AppState extends ChangeNotifier {
   Map<PainArea, List<ExerciseProgram>> get programsByArea =>
       ExerciseCatalog.programsByArea;
   List<TipArticle> get tips => ExerciseCatalog.tips;
+  int get pendingProgramLaunchSequence => _programLaunchSequence;
+
+  int get missedRemindersToday {
+    final today = _now();
+    return _logs
+        .where(
+          (log) =>
+              log.status == ExerciseStatus.missed &&
+              _isSameDay(log.occurredAt, today),
+        )
+        .length;
+  }
+
+  bool get hasMissedRemindersToday => missedRemindersToday > 0;
 
   Future<void> initialize() async {
     await _reminderScheduler.initialize();
@@ -64,9 +90,22 @@ class AppState extends ChangeNotifier {
       _nextReminderAt = _defaultNextReminder();
     }
 
+    _handleNotificationPayload(
+      _reminderScheduler.takePendingNotificationPayload(),
+    );
+    _notificationResponseSubscription = _reminderScheduler.notificationResponses
+        .listen(_handleNotificationPayload);
+
+    _reconcileMissedReminders(now: _now());
     await _refreshReminderDiagnostics(notify: false);
     await _syncAndPersistNow();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _notificationResponseSubscription?.cancel();
+    super.dispose();
   }
 
   void completeQuestionnaire(UserProfile profile) {
@@ -86,12 +125,19 @@ class AppState extends ChangeNotifier {
     _logs.clear();
     _settings = defaultReminderSettings;
     _nextReminderAt = _defaultNextReminder();
+    _hasPendingProgramLaunch = false;
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
 
   Future<void> requestNotificationPermission() async {
     await _reminderScheduler.requestPermissions();
+    await _refreshReminderDiagnostics();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  Future<void> requestExactAlarmPermission() async {
+    await _reminderScheduler.requestExactAlarmPermission();
     await _refreshReminderDiagnostics();
     _queueSideEffects(syncReminders: true);
   }
@@ -108,6 +154,21 @@ class AppState extends ChangeNotifier {
     await _refreshReminderDiagnostics();
   }
 
+  void handleAppResumed() {
+    _reconcileMissedReminders(now: _now());
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  ExerciseProgram? consumePendingProgramLaunch() {
+    if (!_hasPendingProgramLaunch || _activeProgram == null) {
+      return null;
+    }
+
+    _hasPendingProgramLaunch = false;
+    return _activeProgram;
+  }
+
   void updateNotificationsEnabled(bool value) {
     _settings = _settings.copyWith(notificationsEnabled: value);
     notifyListeners();
@@ -116,6 +177,34 @@ class AppState extends ChangeNotifier {
 
   void updateSoundEnabled(bool value) {
     _settings = _settings.copyWith(soundEnabled: value);
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  void updateVibrationEnabled(bool value) {
+    _settings = _settings.copyWith(vibrationEnabled: value);
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  Future<void> pickNotificationSound() async {
+    final selection = await _reminderScheduler.pickSystemNotificationSound(
+      existingUri: _settings.notificationSoundUri,
+    );
+    if (selection == null) {
+      return;
+    }
+
+    if (selection.isDefault) {
+      useDefaultNotificationSound();
+      return;
+    }
+
+    _applyNotificationSound(selection);
+  }
+
+  void useDefaultNotificationSound() {
+    _settings = _settings.copyWith(clearNotificationSound: true);
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
@@ -138,16 +227,13 @@ class AppState extends ChangeNotifier {
   }
 
   void logExercise(Exercise exercise, ExerciseStatus status) {
-    _logs.add(
+    _appendLog(
       ExerciseLog(
         exerciseName: exercise.name,
         status: status,
-        occurredAt: DateTime.now(),
+        occurredAt: _now(),
       ),
     );
-    if (_logs.length > 40) {
-      _logs.removeRange(0, _logs.length - 40);
-    }
     notifyListeners();
     _queueSideEffects(syncReminders: false);
   }
@@ -160,11 +246,14 @@ class AppState extends ChangeNotifier {
 
   void snoozeReminder([int minutes = 10]) {
     _nextReminderAt = _normalizedReminder(
-      DateTime.now().add(Duration(minutes: minutes)),
+      _now().add(Duration(minutes: minutes)),
     );
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
+
+  @visibleForTesting
+  Future<void> settleSideEffects() => _sideEffects;
 
   PersistedAppData _buildSnapshot() {
     return PersistedAppData(
@@ -226,7 +315,7 @@ class AppState extends ChangeNotifier {
       return requestedReminder;
     }
 
-    if (requestedReminder.isBefore(DateTime.now())) {
+    if (requestedReminder.isBefore(_now())) {
       return _recalculateNextReminderFromNow();
     }
 
@@ -235,15 +324,130 @@ class AppState extends ChangeNotifier {
       settings: _settings,
       maxEntries: 1,
       horizon: const Duration(days: 2),
+      now: _now(),
     );
     return schedule.isEmpty ? requestedReminder : schedule.first;
   }
 
   DateTime _recalculateNextReminderFromNow() {
     if (!hasValidReminderWindow) {
-      return DateTime.now();
+      return _now();
     }
 
-    return ReminderTimeline.nextAlignedSlotAtOrAfter(DateTime.now(), _settings);
+    return ReminderTimeline.nextAlignedSlotAtOrAfter(
+      _now(),
+      _settings,
+      now: _now(),
+    );
+  }
+
+  void _applyNotificationSound(SystemNotificationSound selection) {
+    _settings = _settings.copyWith(
+      notificationSoundUri: selection.uri,
+      notificationSoundLabel: selection.label,
+    );
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  void _appendLog(ExerciseLog log) {
+    _logs.add(log);
+    if (_logs.length > 40) {
+      _logs.removeRange(0, _logs.length - 40);
+    }
+  }
+
+  void _handleNotificationPayload(String? payload) {
+    final programId = _extractProgramId(payload);
+    if (_activeProgram == null || programId != _activeProgram!.id) {
+      return;
+    }
+
+    _hasPendingProgramLaunch = true;
+    _programLaunchSequence += 1;
+    notifyListeners();
+  }
+
+  String? _extractProgramId(String? payload) {
+    if (payload == null || payload.isEmpty) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return decoded['programId'] as String?;
+      }
+    } catch (_) {
+      // Fallback to the legacy payload format where the program id was stored directly.
+    }
+
+    return payload;
+  }
+
+  void _reconcileMissedReminders({required DateTime now}) {
+    if (_activeProgram == null ||
+        !_settings.notificationsEnabled ||
+        !hasValidReminderWindow ||
+        !_nextReminderAt.isBefore(now)) {
+      return;
+    }
+
+    var dueReminder = _nextReminderAt;
+    while (dueReminder.isBefore(now)) {
+      final nextDueReminder = ReminderTimeline.alignToWindow(
+        dueReminder.add(Duration(minutes: _settings.intervalMinutes)),
+        _settings,
+        now: DateTime.fromMillisecondsSinceEpoch(0),
+      );
+
+      if (nextDueReminder.isAfter(now)) {
+        break;
+      }
+
+      if (!_hasCompletedBetween(dueReminder, nextDueReminder) &&
+          !_hasMissedLogFor(dueReminder)) {
+        _appendLog(
+          ExerciseLog(
+            exerciseName:
+                'พลาดการแจ้งเตือนรอบ ${_formatReminderTime(dueReminder)}',
+            status: ExerciseStatus.missed,
+            occurredAt: dueReminder,
+            reminderAt: dueReminder,
+          ),
+        );
+      }
+
+      dueReminder = nextDueReminder;
+    }
+  }
+
+  bool _hasCompletedBetween(DateTime startInclusive, DateTime endExclusive) {
+    return _logs.any(
+      (log) =>
+          log.status == ExerciseStatus.done &&
+          !log.occurredAt.isBefore(startInclusive) &&
+          log.occurredAt.isBefore(endExclusive),
+    );
+  }
+
+  bool _hasMissedLogFor(DateTime reminderAt) {
+    return _logs.any(
+      (log) =>
+          log.status == ExerciseStatus.missed &&
+          log.reminderAt?.isAtSameMomentAs(reminderAt) == true,
+    );
+  }
+
+  String _formatReminderTime(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  bool _isSameDay(DateTime left, DateTime right) {
+    return left.year == right.year &&
+        left.month == right.month &&
+        left.day == right.day;
   }
 }

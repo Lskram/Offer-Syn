@@ -19,6 +19,37 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _selectedIndex = 0;
+  int _lastHandledLaunchSequence = 0;
+  bool _isSessionOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.appState.addListener(_handleAppStateChanged);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _handleAppStateChanged(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.appState == widget.appState) {
+      return;
+    }
+
+    oldWidget.appState.removeListener(_handleAppStateChanged);
+    widget.appState.addListener(_handleAppStateChanged);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _handleAppStateChanged(),
+    );
+  }
+
+  @override
+  void dispose() {
+    widget.appState.removeListener(_handleAppStateChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,12 +88,47 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
+  void _handleAppStateChanged() {
+    if (!mounted || _isSessionOpen) {
+      return;
+    }
+
+    final launchSequence = widget.appState.pendingProgramLaunchSequence;
+    if (launchSequence == _lastHandledLaunchSequence) {
+      return;
+    }
+
+    _lastHandledLaunchSequence = launchSequence;
+    final program = widget.appState.consumePendingProgramLaunch();
+    if (program == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isSessionOpen) {
+        return;
+      }
+      _openProgram(program);
+    });
+  }
+
   void _openProgram(ExerciseProgram program) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            ExerciseSessionScreen(appState: widget.appState, program: program),
-      ),
-    );
+    if (_isSessionOpen) {
+      return;
+    }
+
+    _isSessionOpen = true;
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => ExerciseSessionScreen(
+              appState: widget.appState,
+              program: program,
+            ),
+          ),
+        )
+        .whenComplete(() {
+          _isSessionOpen = false;
+        });
   }
 }

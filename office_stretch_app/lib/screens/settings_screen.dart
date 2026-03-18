@@ -14,6 +14,13 @@ class SettingsScreen extends StatelessWidget {
     final settings = appState.settings;
     final theme = Theme.of(context);
     final diagnostics = appState.reminderDiagnostics;
+    final hasCustomSound =
+        settings.notificationSoundUri != null &&
+        settings.notificationSoundUri!.isNotEmpty;
+    final soundLabel = hasCustomSound
+        ? settings.notificationSoundLabel ?? 'เสียงระบบที่เลือก'
+        : 'เสียงเริ่มต้นของระบบ';
+    final canEditAlertStyle = settings.notificationsEnabled;
 
     return SafeArea(
       child: ListView(
@@ -43,7 +50,9 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'แอปตอนนี้ใช้ local notifications แบบ inexactAllowWhileIdle จึงแจ้งเตือนได้ตอนจอดำหรือเปิดแอปอื่น แต่เวลาอาจคลาดเล็กน้อยตามข้อจำกัดของ Android และการประหยัดแบต',
+                    diagnostics.usesExactScheduling
+                        ? 'ตอนนี้เครื่องนี้ใช้ exactAllowWhileIdle แล้ว เวลาจะตรงกว่าปกติ แต่ยังขึ้นกับ battery policy และเสียงของระบบ'
+                        : 'ตอนนี้ยังใช้ inexactAllowWhileIdle อยู่ เวลาการแจ้งเตือนอาจดีเลย์ได้ โดยเฉพาะตอนจอดำหรือเครื่องประหยัดแบต',
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
@@ -59,10 +68,58 @@ class SettingsScreen extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('เปิดเสียงแจ้งเตือน'),
                     value: settings.soundEnabled,
-                    onChanged: settings.notificationsEnabled
+                    onChanged: canEditAlertStyle
                         ? appState.updateSoundEnabled
                         : null,
                   ),
+                  SwitchListTile(
+                    key: AppKeys.settingsVibrationEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('สั่นเมื่อแจ้งเตือน'),
+                    value: settings.vibrationEnabled,
+                    onChanged: canEditAlertStyle
+                        ? appState.updateVibrationEnabled
+                        : null,
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.music_note_outlined),
+                    title: const Text('เสียงแจ้งเตือน'),
+                    subtitle: Text(
+                      settings.soundEnabled
+                          ? soundLabel
+                          : 'ปิดเสียงแจ้งเตือนอยู่',
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton.icon(
+                        key: AppKeys.settingsPickSound,
+                        onPressed: canEditAlertStyle && diagnostics.isAndroid
+                            ? appState.pickNotificationSound
+                            : null,
+                        icon: const Icon(Icons.library_music_outlined),
+                        label: const Text('เลือกเสียงระบบ'),
+                      ),
+                      TextButton.icon(
+                        key: AppKeys.settingsResetSound,
+                        onPressed: canEditAlertStyle && hasCustomSound
+                            ? appState.useDefaultNotificationSound
+                            : null,
+                        icon: const Icon(Icons.restart_alt_outlined),
+                        label: const Text('ใช้เสียงเริ่มต้น'),
+                      ),
+                    ],
+                  ),
+                  if (!diagnostics.isAndroid) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'การเลือกเสียงจากระบบรองรับเฉพาะ Android',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
                     key: AppKeys.settingsIntervalMinutes,
@@ -70,11 +127,16 @@ class SettingsScreen extends StatelessWidget {
                     decoration: const InputDecoration(
                       labelText: 'รอบแจ้งเตือนเริ่มต้น',
                     ),
-                    items: const [30, 45, 60, 90, 120]
+                    items: const [1, 30, 45, 60, 90, 120]
                         .map(
                           (minutes) => DropdownMenuItem<int>(
                             value: minutes,
-                            child: Text('ทุก $minutes นาที'),
+                            child: Text(
+                              minutes == 1
+                                  ? 'ทุก 1 นาที (สำหรับทดสอบ)'
+                                  : 'ทุก $minutes นาที',
+                              key: AppKeys.settingsIntervalOption(minutes),
+                            ),
                           ),
                         )
                         .toList(),
@@ -144,7 +206,7 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   const _BulletRow(
                     text:
-                        'ทดสอบบนเครื่องจริงอย่างน้อย 1 เครื่องก่อนใช้งานจริง โดยเฉพาะถ้าเป็น Samsung, Xiaomi, Oppo, Vivo หรือ Huawei',
+                        'ทดสอบบนเครื่องจริงอย่างน้อย 1 เครื่องก่อนใช้งานจริง โดยเฉพาะ Samsung, Xiaomi, Oppo, Vivo หรือ Huawei',
                   ),
                   const _BulletRow(
                     text:
@@ -152,7 +214,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const _BulletRow(
                     text:
-                        'ถ้าเปิด Do Not Disturb หรือปิด notification ของแอปเอง ระบบจะไม่สามารถแสดงเตือนได้ตามปกติ',
+                        'ถ้าเปิด Do Not Disturb หรือปิด notification ของแอปเอง ระบบจะแสดงเตือนไม่ครบตามปกติ',
                   ),
                 ],
               ),
@@ -241,8 +303,8 @@ class _ReminderReadinessCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               diagnostics.isAndroid
-                  ? 'Android สามารถแจ้งเตือนขณะจอดำหรือกำลังใช้แอปอื่นได้ แต่ระบบปัจจุบันเป็น inexact schedule จึงอาจมาช้ากว่าที่ตั้งไว้ โดยเฉพาะถ้าเครื่องยังจำกัด battery'
-                  : 'เครื่องนี้ไม่ได้ใช้ Android local notification flow แบบเดียวกับแอปเป้าหมาย จึงไม่สามารถวินิจฉัย battery optimization ได้จากหน้านี้',
+                  ? 'Android สามารถแจ้งเตือนขณะจอดำหรือกำลังใช้แอปอื่นได้ แต่ความตรงเวลาจะขึ้นกับ exact alarm, battery optimization และนโยบายของเครื่อง'
+                  : 'เครื่องนี้ไม่ได้ใช้ Android local notification flow แบบเดียวกับแอปเป้าหมาย จึงวินิจฉัยเรื่อง exact alarm และ battery optimization จากหน้านี้ไม่ได้',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: diagnostics.needsAttention
                     ? theme.colorScheme.onErrorContainer
@@ -268,9 +330,19 @@ class _ReminderReadinessCard extends StatelessWidget {
                     }
                   : 'ไม่เกี่ยวข้อง',
             ),
-            const _StatusRow(
+            _StatusRow(
+              label: 'Exact alarm',
+              value: diagnostics.isAndroid
+                  ? switch (diagnostics.exactAlarmsEnabled) {
+                      true => 'พร้อม',
+                      false => 'ยังไม่เปิด',
+                      null => 'ตรวจไม่ได้',
+                    }
+                  : 'ไม่เกี่ยวข้อง',
+            ),
+            _StatusRow(
               label: 'Schedule mode',
-              value: 'inexactAllowWhileIdle',
+              value: diagnostics.scheduleModeLabel,
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -282,6 +354,13 @@ class _ReminderReadinessCard extends StatelessWidget {
                     onPressed: appState.requestNotificationPermission,
                     icon: const Icon(Icons.notifications_active_outlined),
                     label: const Text('ขอสิทธิ์แจ้งเตือน'),
+                  ),
+                if (diagnostics.supportsExactAlarmPermissionPrompt)
+                  OutlinedButton.icon(
+                    key: AppKeys.settingsRequestExactAlarm,
+                    onPressed: appState.requestExactAlarmPermission,
+                    icon: const Icon(Icons.alarm_on_outlined),
+                    label: const Text('เปิด exact alarm'),
                   ),
                 if (diagnostics.supportsNotificationSettings)
                   OutlinedButton.icon(
