@@ -2,15 +2,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:office_stretch_app/app/app_state.dart';
 import 'package:office_stretch_app/models/app_models.dart';
 import 'package:office_stretch_app/models/reminder_diagnostics.dart';
+import 'package:office_stretch_app/models/reminder_sync_state.dart';
 import 'package:office_stretch_app/models/system_notification_sound.dart';
 import 'package:office_stretch_app/services/app_persistence.dart';
 import 'package:office_stretch_app/services/reminder_scheduler.dart';
 import 'package:office_stretch_app/services/reminder_timeline.dart';
 
 class TestReminderScheduler implements ReminderScheduler {
-  TestReminderScheduler(this.now);
+  TestReminderScheduler(
+    this.now, {
+    this.confirmPendingRequests = true,
+    this.notificationsPermissionAtSync = true,
+    this.maxEntries = 4,
+  });
 
   final DateTime Function() now;
+  final bool confirmPendingRequests;
+  final bool? notificationsPermissionAtSync;
+  final int maxEntries;
 
   @override
   Stream<String?> get notificationResponses => const Stream<String?>.empty();
@@ -40,27 +49,51 @@ class TestReminderScheduler implements ReminderScheduler {
   }
 
   @override
+  Future<void> sendTestNotification({
+    required ReminderSettings settings,
+    required ExerciseProgram? program,
+  }) async {}
+
+  @override
   Future<void> requestPermissions() async {}
 
   @override
   Future<bool> requestExactAlarmPermission() async => false;
 
   @override
-  Future<List<DateTime>> sync({
+  Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
     required ExerciseProgram? program,
   }) async {
     if (!settings.notificationsEnabled || program == null) {
-      return const <DateTime>[];
+      return const ReminderSyncState.empty();
     }
 
-    return ReminderTimeline.buildSchedule(
+    final schedule = ReminderTimeline.buildSchedule(
       requestedStartAt: requestedStartAt,
       settings: settings,
-      maxEntries: 1,
+      maxEntries: maxEntries,
       horizon: const Duration(days: 1),
       now: now(),
+    );
+
+    return ReminderSyncState(
+      requestedReminderCount: schedule.length,
+      pendingRequestCount: confirmPendingRequests ? schedule.length : 0,
+      scheduledReminders: confirmPendingRequests
+          ? [
+              for (var index = 0; index < schedule.length; index += 1)
+                ScheduledReminderEntry(
+                  notificationId: 1000 + index,
+                  scheduledAt: schedule[index],
+                ),
+            ]
+          : const <ScheduledReminderEntry>[],
+      usesExactScheduling: false,
+      notificationsPermissionAtSync: notificationsPermissionAtSync,
+      syncedAt: now(),
+      nextReminderAt: schedule.isEmpty ? null : schedule.first,
     );
   }
 }
@@ -135,6 +168,36 @@ void main() {
 
       expect(missedLogs, isEmpty);
       expect(state.nextReminderAt, DateTime(2026, 3, 18, 11));
+    },
+  );
+
+  test(
+    'does not mark reminders missed when scheduler cannot confirm pending requests',
+    () async {
+      var now = DateTime(2026, 3, 18, 8, 5);
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: TestReminderScheduler(
+          () => now,
+          confirmPendingRequests: false,
+        ),
+        now: () => now,
+      );
+
+      await state.initialize();
+      state.completeQuestionnaire(buildProfile());
+      await state.settleSideEffects();
+
+      now = DateTime(2026, 3, 18, 11, 5);
+      state.handleAppResumed();
+      await state.settleSideEffects();
+
+      final missedLogs = state.logs
+          .where((log) => log.status == ExerciseStatus.missed)
+          .toList(growable: false);
+
+      expect(missedLogs, isEmpty);
+      expect(state.reminderSyncState.canTrustMissedInference, isFalse);
     },
   );
 }

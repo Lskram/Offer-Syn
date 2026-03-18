@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/app_keys.dart';
 import '../app/app_state.dart';
 import '../models/app_models.dart';
+import '../widgets/office_relief_brand_mark.dart';
+import '../widgets/office_relief_missed_state.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -40,6 +42,8 @@ class HomeScreen extends StatelessWidget {
         key: AppKeys.homeScreen,
         padding: const EdgeInsets.all(20),
         children: [
+          const OfficeReliefBrandMark(size: 70, showWordmark: true),
+          const SizedBox(height: 18),
           if (appState.reminderDiagnostics.needsAttention) ...[
             Card(
               color: theme.colorScheme.errorContainer,
@@ -51,15 +55,15 @@ class HomeScreen extends StatelessWidget {
                     Text(
                       'Reminder needs attention',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       appState.reminderDiagnostics.notificationsEnabled == false
-                          ? 'ตอนนี้ Android ยังไม่อนุญาต notification หรือถูกปิดไว้ การเตือนจะไม่ขึ้นจนกว่าจะเปิดอีกครั้ง'
-                          : 'เครื่องนี้ยังอยู่ภายใต้ battery optimization การเตือนตอนจอดำหรือเปิดแอปอื่นอาจมาช้ากว่าที่ตั้งไว้',
+                          ? 'ตอนนี้เครื่องยังไม่อนุญาต notification หรือถูกปิดไว้ การเตือนจะยังไม่ขึ้นจนกว่าจะเปิดใหม่'
+                          : 'เครื่องนี้ยังอยู่ภายใต้ battery optimization การเตือนตอนจอดำอาจมาช้ากว่าที่ตั้งไว้',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onErrorContainer,
                       ),
@@ -76,23 +80,32 @@ class HomeScreen extends StatelessWidget {
               color: theme.colorScheme.tertiaryContainer,
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'มีรอบที่พลาดวันนี้',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onTertiaryContainer,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'มีรอบที่พลาดวันนี้',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: theme.colorScheme.onTertiaryContainer,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'วันนี้พลาดการแจ้งเตือน ${appState.missedRemindersToday} รอบ ระบบบันทึกไว้ในประวัติรายวันแล้ว',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onTertiaryContainer,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'วันนี้พลาดการแจ้งเตือน ${appState.missedRemindersToday} รอบ ระบบบันทึกไว้ในประวัติรายวันแล้ว',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onTertiaryContainer,
-                      ),
-                    ),
+                    const SizedBox(width: 12),
+                    const OfficeReliefMissedState(size: 88),
                   ],
                 ),
               ),
@@ -103,22 +116,30 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
-              color: theme.colorScheme.primaryContainer,
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFE9F7FF),
+                  Color(0xFFD8F8FF),
+                  Color(0xFFF4FFD4),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'โปรแกรมวันนี้ของคุณ',
+                  'แผนวันนี้ของคุณ',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   program.title,
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -142,15 +163,17 @@ class HomeScreen extends StatelessWidget {
                           ? Icons.notifications_active_outlined
                           : Icons.notifications_off_outlined,
                       label: appState.settings.notificationsEnabled
-                          ? 'ครั้งถัดไป $nextReminderText'
+                          ? 'รอบถัดไป $nextReminderText'
                           : 'ปิดการแจ้งเตือนอยู่',
                     ),
                     _StatChip(
-                      icon: appState.reminderDiagnostics.usesExactScheduling
-                          ? Icons.track_changes_outlined
-                          : Icons.timelapse_outlined,
+                      icon: switch (appState.settings.vibrationLevel) {
+                        VibrationLevel.light => Icons.vibration_outlined,
+                        VibrationLevel.medium => Icons.vibration_rounded,
+                        VibrationLevel.strong => Icons.priority_high_rounded,
+                      },
                       label:
-                          'โหมด ${appState.reminderDiagnostics.scheduleModeLabel}',
+                          'สั่น${appState.settings.vibrationEnabled ? appState.settings.vibrationLevel.label : "ปิด"}',
                     ),
                   ],
                 ),
@@ -190,7 +213,7 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     'สรุปจากแบบสอบถาม',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -224,7 +247,7 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     'แผนท่าวันนี้',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -250,7 +273,7 @@ class HomeScreen extends StatelessWidget {
                                 Text(
                                   exercise.name,
                                   style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -258,7 +281,7 @@ class HomeScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   'เวลา ${exercise.durationSeconds} วินาที'
-                                  '${exercise.requiresStanding ? ' • ลุกขึ้นทำ' : ''}',
+                                  '${exercise.requiresStanding ? ' และแนะนำให้ลุกขึ้นทำ' : ''}',
                                   style: theme.textTheme.bodySmall,
                                 ),
                               ],
@@ -282,14 +305,23 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     'กิจกรรมล่าสุด',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 14),
                   if (appState.logs.isEmpty)
-                    Text(
-                      'ยังไม่มีประวัติการทำท่า เริ่มรอบแรกจากปุ่มด้านบนได้เลย',
-                      style: theme.textTheme.bodyMedium,
+                    Center(
+                      child: Column(
+                        children: [
+                          const OfficeReliefMissedState(size: 168),
+                          const SizedBox(height: 12),
+                          Text(
+                            'ยังไม่มีประวัติการทำท่า เริ่มรอบแรกจากปุ่มด้านบนได้เลย',
+                            style: theme.textTheme.bodyMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     )
                   else
                     ...appState.logs.take(5).map((log) {
@@ -306,7 +338,7 @@ class HomeScreen extends StatelessWidget {
                             Icons.notification_important_outlined,
                         }),
                         title: Text(log.exerciseName),
-                        subtitle: Text('$time • ${log.status.label}'),
+                        subtitle: Text('$time - ${log.status.label}'),
                       );
                     }),
                 ],
@@ -340,7 +372,7 @@ class _StatChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.74),
+        color: Colors.white.withValues(alpha: 0.92),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -379,7 +411,7 @@ class _KeyValueRow extends StatelessWidget {
               textAlign: TextAlign.right,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],

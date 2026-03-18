@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/app_models.dart';
 import '../models/reminder_diagnostics.dart';
+import '../models/reminder_sync_state.dart';
 import '../models/system_notification_sound.dart';
 import 'reminder_timeline.dart';
 
@@ -34,7 +35,12 @@ abstract class ReminderScheduler {
     String? existingUri,
   });
 
-  Future<List<DateTime>> sync({
+  Future<void> sendTestNotification({
+    required ReminderSettings settings,
+    required ExerciseProgram? program,
+  });
+
+  Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
     required ExerciseProgram? program,
@@ -78,20 +84,42 @@ class NoopReminderScheduler implements ReminderScheduler {
   }
 
   @override
-  Future<List<DateTime>> sync({
+  Future<void> sendTestNotification({
+    required ReminderSettings settings,
+    required ExerciseProgram? program,
+  }) async {}
+
+  @override
+  Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
     required ExerciseProgram? program,
   }) async {
     if (!settings.notificationsEnabled || program == null) {
-      return const <DateTime>[];
+      return const ReminderSyncState.empty();
     }
 
-    return ReminderTimeline.buildSchedule(
+    final schedule = ReminderTimeline.buildSchedule(
       requestedStartAt: requestedStartAt,
       settings: settings,
       maxEntries: 1,
       horizon: const Duration(days: 1),
+    );
+
+    return ReminderSyncState(
+      requestedReminderCount: schedule.length,
+      pendingRequestCount: schedule.length,
+      scheduledReminders: [
+        for (var index = 0; index < schedule.length; index += 1)
+          ScheduledReminderEntry(
+            notificationId: 1000 + index,
+            scheduledAt: schedule[index],
+          ),
+      ],
+      usesExactScheduling: false,
+      notificationsPermissionAtSync: true,
+      syncedAt: DateTime.now(),
+      nextReminderAt: schedule.isEmpty ? null : schedule.first,
     );
   }
 }
@@ -101,11 +129,12 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   static const _channelId = 'stretch_reminders';
-  static const _channelName = 'Stretch reminders';
-  static const _channelDescription = 'Reminders to pause and stretch';
-  static const _channelVersion = 'v3';
+  static const _channelName = 'OfficeRelief reminders';
+  static const _channelDescription = 'Reminders to pause, stretch, and reset';
+  static const _channelVersion = 'v4';
   static const _managedChannelPrefix = '${_channelId}_${_channelVersion}_';
   static const _notificationBaseId = 1000;
+  static const _testNotificationId = 999;
   static const _maxScheduledNotifications = 60;
   static const _defaultAndroidNotificationSoundUri =
       'content://settings/system/notification_sound';
@@ -145,7 +174,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       defaultActionName: 'Open notification',
     );
     const windows = WindowsInitializationSettings(
-      appName: 'Office Stretch',
+      appName: 'OfficeRelief',
       appUserModelId: 'com.codex.office_stretch_app',
       guid: 'e0178c83-b38b-4d2b-aa5a-6ddc6bb1d24e',
     );
@@ -273,11 +302,12 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   }
 
   @override
-  Future<List<DateTime>> sync({
+  Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
     required ExerciseProgram? program,
   }) async {
+    final syncedAt = DateTime.now();
     await _cancelManagedNotifications();
     await _cleanupManagedChannels(
       retainChannelId: settings.notificationsEnabled && program != null
@@ -288,10 +318,15 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     if (!settings.notificationsEnabled ||
         program == null ||
         !ReminderTimeline.hasValidWindow(settings)) {
-      return const <DateTime>[];
+      return ReminderSyncState(
+        requestedReminderCount: 0,
+        pendingRequestCount: 0,
+        scheduledReminders: const <ScheduledReminderEntry>[],
+        usesExactScheduling: false,
+        notificationsPermissionAtSync: await _readNotificationsEnabled(),
+        syncedAt: syncedAt,
+      );
     }
-
-    await _requestPermissionsIfNeeded();
 
     final canUseExactAlarms = await _canScheduleExactAlarms();
     final schedule = ReminderTimeline.buildSchedule(
@@ -300,31 +335,9 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       maxEntries: _maxScheduledNotifications,
     );
     final channelId = _resolveChannelId(settings);
-
-    final details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        channelId,
-        _channelName,
-        channelDescription: _channelDescription,
-        importance: Importance.max,
-        priority: Priority.max,
-        playSound: settings.soundEnabled,
-        sound: _resolveAndroidSound(settings),
-        enableVibration: settings.vibrationEnabled,
-        vibrationPattern: settings.vibrationEnabled
-            ? Int64List.fromList(const [0, 300, 150, 300])
-            : null,
-      ),
-      iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: false,
-        presentSound: settings.soundEnabled,
-      ),
-      macOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: false,
-        presentSound: settings.soundEnabled,
-      ),
+    final details = _buildNotificationDetails(
+      settings: settings,
+      channelId: channelId,
     );
 
     for (var index = 0; index < schedule.length; index += 1) {
@@ -346,7 +359,52 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       );
     }
 
-    return schedule;
+    final pendingRequests = await _readManagedPendingRequests();
+    final pendingIds = pendingRequests.map((request) => request.id).toSet();
+
+    return ReminderSyncState(
+      requestedReminderCount: schedule.length,
+      pendingRequestCount: pendingRequests.length,
+      scheduledReminders: [
+        for (var index = 0; index < schedule.length; index += 1)
+          if (pendingIds.contains(_notificationBaseId + index))
+            ScheduledReminderEntry(
+              notificationId: _notificationBaseId + index,
+              scheduledAt: schedule[index],
+            ),
+      ],
+      usesExactScheduling: canUseExactAlarms,
+      notificationsPermissionAtSync: await _readNotificationsEnabled(),
+      syncedAt: syncedAt,
+      nextReminderAt: schedule.isEmpty ? null : schedule.first,
+    );
+  }
+
+  @override
+  Future<void> sendTestNotification({
+    required ReminderSettings settings,
+    required ExerciseProgram? program,
+  }) async {
+    await _requestPermissionsIfNeeded();
+
+    final channelId = _resolveChannelId(settings);
+    final details = _buildNotificationDetails(
+      settings: settings,
+      channelId: channelId,
+    );
+
+    await _plugin.show(
+      id: _testNotificationId,
+      title: 'ทดสอบการแจ้งเตือน OfficeRelief',
+      body: program == null
+          ? 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนของแอปทำงานแล้ว'
+          : 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนพร้อมสำหรับโปรแกรม ${program.title}',
+      notificationDetails: details,
+      payload: jsonEncode(<String, Object?>{
+        'programId': program?.id,
+        'test': true,
+      }),
+    );
   }
 
   AndroidFlutterLocalNotificationsPlugin? get _androidPlugin => _plugin
@@ -385,9 +443,63 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   }
 
   Future<void> _cancelManagedNotifications() async {
+    await _plugin.cancel(id: _testNotificationId);
     for (var index = 0; index < _maxScheduledNotifications; index += 1) {
       await _plugin.cancel(id: _notificationBaseId + index);
     }
+  }
+
+  Future<List<PendingNotificationRequest>> _readManagedPendingRequests() async {
+    for (var attempt = 0; attempt < 3; attempt += 1) {
+      final pendingRequests = await _plugin.pendingNotificationRequests();
+      final managedRequests = pendingRequests
+          .where(
+            (request) =>
+                request.id >= _notificationBaseId &&
+                request.id < (_notificationBaseId + _maxScheduledNotifications),
+          )
+          .toList(growable: false);
+
+      if (managedRequests.isNotEmpty || attempt == 2) {
+        return managedRequests;
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+
+    return const <PendingNotificationRequest>[];
+  }
+
+  NotificationDetails _buildNotificationDetails({
+    required ReminderSettings settings,
+    required String channelId,
+  }) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        icon: 'ic_stat_office_relief',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: settings.soundEnabled,
+        sound: _resolveAndroidSound(settings),
+        enableVibration: settings.vibrationEnabled,
+        vibrationPattern: settings.vibrationEnabled
+            ? _resolveVibrationPattern(settings.vibrationLevel)
+            : null,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: false,
+        presentSound: settings.soundEnabled,
+      ),
+      macOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: false,
+        presentSound: settings.soundEnabled,
+      ),
+    );
   }
 
   AndroidNotificationSound? _resolveAndroidSound(ReminderSettings settings) {
@@ -409,6 +521,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     final rawKey = jsonEncode(<String, Object?>{
       'soundEnabled': settings.soundEnabled,
       'vibrationEnabled': settings.vibrationEnabled,
+      'vibrationLevel': settings.vibrationLevel.name,
       'notificationSoundUri': settings.notificationSoundUri,
     });
 
@@ -463,6 +576,30 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
 
   Future<bool> _canScheduleExactAlarms() async {
     return await _readExactAlarmCapability() ?? true;
+  }
+
+  Future<bool?> _readNotificationsEnabled() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return null;
+    }
+
+    try {
+      return await _androidPlugin?.areNotificationsEnabled();
+    } catch (error) {
+      debugPrint('Failed to inspect notification permission state: $error');
+      return null;
+    }
+  }
+
+  Int64List _resolveVibrationPattern(VibrationLevel level) {
+    switch (level) {
+      case VibrationLevel.light:
+        return Int64List.fromList(const [0, 140, 90, 140]);
+      case VibrationLevel.medium:
+        return Int64List.fromList(const [0, 260, 120, 260, 120, 260]);
+      case VibrationLevel.strong:
+        return Int64List.fromList(const [0, 420, 160, 420, 160, 420]);
+    }
   }
 
   void _recordNotificationPayload(String? payload) {

@@ -14,6 +14,11 @@ void main() {
   testWidgets('onboarding, navigation, session, and reset flow works', (
     tester,
   ) async {
+    Future<void> pumpUi() async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
     Future<void> tapVisible(Finder finder, {Finder? scrollable}) async {
       if (scrollable != null) {
         await tester.scrollUntilVisible(finder, 200, scrollable: scrollable);
@@ -21,7 +26,7 @@ void main() {
         await tester.ensureVisible(finder);
       }
       await tester.tap(finder, warnIfMissed: false);
-      await tester.pumpAndSettle();
+      await pumpUi();
     }
 
     final appState = AppState(
@@ -31,7 +36,8 @@ void main() {
     await appState.initialize();
 
     await tester.pumpWidget(OfficeStretchApp(appState: appState));
-    await tester.pumpAndSettle();
+    await pumpUi();
+    debugPrint('smoke: questionnaire ready');
 
     expect(find.byKey(AppKeys.questionnaireScreen), findsOneWidget);
 
@@ -43,24 +49,30 @@ void main() {
         stretchHabit: StretchHabit.sometimes,
       ),
     );
-    await tester.pumpAndSettle();
+    await pumpUi();
+    debugPrint('smoke: onboarding complete');
 
     expect(find.byKey(AppKeys.homeScreen), findsOneWidget);
     expect(appState.activeProgram?.id, 'neck-medium');
 
     await tapVisible(find.text('Exercises'));
+    debugPrint('smoke: library open');
 
     expect(find.byKey(AppKeys.libraryScreen), findsOneWidget);
 
     await tapVisible(find.byKey(AppKeys.libraryStartProgram('neck-medium')));
+    debugPrint('smoke: session open');
 
     expect(find.byKey(AppKeys.sessionScreen), findsOneWidget);
 
     await tapVisible(find.byKey(AppKeys.sessionComplete));
+    debugPrint('smoke: first exercise complete');
     await tapVisible(find.byKey(AppKeys.sessionComplete));
+    debugPrint('smoke: second exercise complete');
 
     expect(find.byKey(AppKeys.sessionFinishClose), findsOneWidget);
     await tapVisible(find.byKey(AppKeys.sessionFinishClose));
+    debugPrint('smoke: session closed');
 
     final completedLogs = appState.logs
         .where((log) => log.status == ExerciseStatus.done)
@@ -68,25 +80,41 @@ void main() {
     expect(completedLogs, 2);
 
     await tapVisible(find.text('Tips'));
+    debugPrint('smoke: tips open');
     expect(find.byKey(AppKeys.tipsScreen), findsOneWidget);
 
     await tapVisible(find.text('Settings'));
+    debugPrint('smoke: settings open');
     expect(find.byKey(AppKeys.settingsScreen), findsOneWidget);
+    final settingsScrollable = find.byType(Scrollable).first;
 
-    await tapVisible(find.byKey(AppKeys.settingsNotificationsEnabled));
+    await tapVisible(
+      find.byKey(AppKeys.settingsNotificationsEnabled),
+      scrollable: settingsScrollable,
+    );
     expect(appState.settings.notificationsEnabled, isFalse);
+    debugPrint('smoke: notifications off');
 
-    await tapVisible(find.byKey(AppKeys.settingsNotificationsEnabled));
+    await tapVisible(
+      find.byKey(AppKeys.settingsNotificationsEnabled),
+      scrollable: settingsScrollable,
+    );
     expect(appState.settings.notificationsEnabled, isTrue);
+    debugPrint('smoke: notifications on');
 
-    await tapVisible(find.byKey(AppKeys.settingsIntervalMinutes));
+    await tapVisible(
+      find.byKey(AppKeys.settingsIntervalMinutes),
+      scrollable: settingsScrollable,
+    );
     await tapVisible(find.textContaining('90').last);
     expect(appState.settings.intervalMinutes, 90);
+    debugPrint('smoke: interval updated');
 
     await tapVisible(
       find.byKey(AppKeys.settingsRestartOnboarding),
       scrollable: find.byType(Scrollable).first,
     );
+    debugPrint('smoke: onboarding reset');
 
     expect(find.byKey(AppKeys.questionnaireScreen), findsOneWidget);
     expect(appState.hasCompletedOnboarding, isFalse);

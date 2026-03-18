@@ -18,14 +18,14 @@ class TipsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'Tips และหลักการดูแลตัวเอง',
+            'Tips และหลักการดูแลตนเอง',
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'สรุปจากเอกสารงานวิจัยที่คุณให้มา เพื่อใช้เป็นเนื้อหาเริ่มต้นในแอป',
+            'สรุปเนื้อหาจากข้อมูลวิจัยที่ใช้เป็นฐานของ OfficeRelief เพื่อช่วยให้ดูแลตัวเองระหว่างทำงานได้ต่อเนื่องขึ้น',
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 18),
@@ -41,7 +41,7 @@ class TipsScreen extends StatelessWidget {
                       Text(
                         tip.title,
                         style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 8),

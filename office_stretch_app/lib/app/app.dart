@@ -41,7 +41,7 @@ class _OfficeStretchAppState extends State<OfficeStretchApp>
       builder: (context, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Office Stretch',
+          title: 'OfficeRelief',
           theme: _buildTheme(),
           home: widget.appState.hasCompletedOnboarding
               ? HomeShell(appState: widget.appState)
@@ -52,34 +52,84 @@ class _OfficeStretchAppState extends State<OfficeStretchApp>
   }
 
   ThemeData _buildTheme() {
-    const seed = Color(0xFF1F6F78);
+    const seed = Color(0xFF0A67D9);
     final colorScheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: Brightness.light,
-      surface: const Color(0xFFF7F4EE),
+      primary: const Color(0xFF0A67D9),
+      secondary: const Color(0xFF22C7E2),
+      tertiary: const Color(0xFFC8F33A),
+      surface: const Color(0xFFF7FCFF),
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: const Color(0xFFFCFAF6),
-      appBarTheme: const AppBarTheme(centerTitle: false),
+      scaffoldBackgroundColor: const Color(0xFFF3FBFF),
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        foregroundColor: const Color(0xFF062348),
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(
+          color: const Color(0xFF062348),
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textTheme: ThemeData.light().textTheme.apply(
+        bodyColor: const Color(0xFF0C223F),
+        displayColor: const Color(0xFF0C223F),
+      ),
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: colorScheme.outlineVariant),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.65),
+          ),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        indicatorColor: colorScheme.primaryContainer,
+        backgroundColor: Colors.white,
+        indicatorColor: const Color(0xFFE3F4FF),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final color = states.contains(WidgetState.selected)
               ? colorScheme.primary
               : colorScheme.onSurfaceVariant;
           return TextStyle(fontWeight: FontWeight.w600, color: color);
         }),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF0A67D9),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF0A67D9),
+          side: const BorderSide(color: Color(0xFFB3DAFF)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: Colors.white,
+        disabledColor: const Color(0xFFEAF4FC),
+        selectedColor: const Color(0xFFDFF3FF),
+        secondarySelectedColor: const Color(0xFFDFF3FF),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        side: BorderSide(color: colorScheme.outlineVariant),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        secondaryLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        brightness: Brightness.light,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -91,6 +141,10 @@ class _OfficeStretchAppState extends State<OfficeStretchApp>
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFF0A67D9), width: 1.6),
         ),
       ),
     );

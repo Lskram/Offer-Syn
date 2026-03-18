@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'app_models.dart';
+import 'reminder_sync_state.dart';
 
 class PersistedAppData {
   const PersistedAppData({
@@ -8,12 +9,14 @@ class PersistedAppData {
     required this.logs,
     this.profile,
     this.nextReminderAt,
+    this.reminderSyncState = const ReminderSyncState.empty(),
   });
 
   final UserProfile? profile;
   final ReminderSettings settings;
   final List<ExerciseLog> logs;
   final DateTime? nextReminderAt;
+  final ReminderSyncState reminderSyncState;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -21,6 +24,7 @@ class PersistedAppData {
       'settings': settings.toJson(),
       'logs': logs.map((log) => log.toJson()).toList(growable: false),
       'nextReminderAt': nextReminderAt?.toIso8601String(),
+      'reminderSyncState': reminderSyncState.toJson(),
     };
   }
 
@@ -48,6 +52,12 @@ class PersistedAppData {
       nextReminderAt: json['nextReminderAt'] == null
           ? null
           : DateTime.parse(json['nextReminderAt']! as String),
+      reminderSyncState: json['reminderSyncState'] == null
+          ? const ReminderSyncState.empty()
+          : ReminderSyncState.fromJson(
+              (json['reminderSyncState']! as Map<Object?, Object?>)
+                  .cast<String, Object?>(),
+            ),
     );
   }
 

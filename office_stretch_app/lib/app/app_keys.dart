@@ -45,8 +45,17 @@ abstract final class AppKeys {
   static const settingsVibrationEnabled = ValueKey<String>(
     'settings.vibrationEnabled',
   );
+  static const settingsVibrationLevel = ValueKey<String>(
+    'settings.vibrationLevel',
+  );
   static const settingsPickSound = ValueKey<String>('settings.pickSound');
   static const settingsResetSound = ValueKey<String>('settings.resetSound');
+  static const settingsTestNotification = ValueKey<String>(
+    'settings.testNotification',
+  );
+  static const settingsResyncReminders = ValueKey<String>(
+    'settings.resyncReminders',
+  );
   static const settingsRequestExactAlarm = ValueKey<String>(
     'settings.requestExactAlarm',
   );

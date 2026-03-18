@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app/app_keys.dart';
 import '../app/app_state.dart';
 import '../models/app_models.dart';
+import '../widgets/office_relief_mascot.dart';
 
 class ExerciseSessionScreen extends StatefulWidget {
   const ExerciseSessionScreen({
@@ -61,14 +62,14 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
               Text(
                 'ท่า ${_exerciseIndex + 1} / ${widget.program.exercises.length}',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 exercise.name,
                 style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 10),
@@ -102,7 +103,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
                                   Text(
                                     _formatSeconds(_remainingSeconds),
                                     style: theme.textTheme.displaySmall
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                        ?.copyWith(fontWeight: FontWeight.w800),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -119,7 +120,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
                         LinearProgressIndicator(value: progress.clamp(0, 1)),
                         const SizedBox(height: 12),
                         Text(
-                          'เมื่อครบเวลา ระบบจะเลื่อนไปท่าถัดไปให้โดยอัตโนมัติ',
+                          'เมื่อครบเวลา ระบบจะเลื่อนไปท่าถัดไปให้อัตโนมัติ',
                           style: theme.textTheme.bodyMedium,
                           textAlign: TextAlign.center,
                         ),
@@ -239,9 +240,17 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
         builder: (context) {
           return AlertDialog(
             title: const Text('เสร็จสิ้นรอบยืดเส้น'),
-            content: Text(
-              'ทำครบ $_completedCount ท่า'
-              '${_skippedCount > 0 ? ' และข้าม $_skippedCount ท่า' : ''}',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const OfficeReliefMascot(size: 148),
+                const SizedBox(height: 16),
+                Text(
+                  'ทำครบ $_completedCount ท่า'
+                  '${_skippedCount > 0 ? ' และข้าม $_skippedCount ท่า' : ''}',
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
             actions: [
               TextButton(

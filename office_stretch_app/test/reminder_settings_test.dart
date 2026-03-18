@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:office_stretch_app/models/app_models.dart';
 
 void main() {
-  test('defaults vibration to true when loading older persisted data', () {
+  test('defaults vibration settings when loading older persisted data', () {
     final settings = ReminderSettings.fromJson(<String, Object?>{
       'notificationsEnabled': true,
       'soundEnabled': true,
@@ -13,6 +13,7 @@ void main() {
     });
 
     expect(settings.vibrationEnabled, isTrue);
+    expect(settings.vibrationLevel, VibrationLevel.medium);
     expect(settings.notificationSoundUri, isNull);
     expect(settings.notificationSoundLabel, isNull);
   });
@@ -22,6 +23,7 @@ void main() {
       notificationsEnabled: true,
       soundEnabled: true,
       vibrationEnabled: true,
+      vibrationLevel: VibrationLevel.strong,
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 16, minute: 30),
       intervalMinutes: 60,
@@ -34,5 +36,6 @@ void main() {
     expect(updated.notificationSoundUri, isNull);
     expect(updated.notificationSoundLabel, isNull);
     expect(updated.vibrationEnabled, isTrue);
+    expect(updated.vibrationLevel, VibrationLevel.strong);
   });
 }

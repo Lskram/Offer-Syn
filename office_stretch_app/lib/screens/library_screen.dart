@@ -24,9 +24,9 @@ class ExerciseLibraryScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'คลังท่าบริหาร',
+            'คลังโปรแกรมยืดเส้น',
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 8),
@@ -48,7 +48,7 @@ class ExerciseLibraryScreen extends StatelessWidget {
                       Text(
                         area.label,
                         style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -69,17 +69,17 @@ class ExerciseLibraryScreen extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      program.painLevel.label,
+                                      program.title,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
-                                            fontWeight: FontWeight.w700,
+                                            fontWeight: FontWeight.w800,
                                           ),
                                     ),
                                   ),
                                   Text(
                                     'ทุก ${program.reminderIntervalMinutes} นาที',
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ],
@@ -94,11 +94,11 @@ class ExerciseLibraryScreen extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text('• '),
+                                      const Text('- '),
                                       Expanded(
                                         child: Text(
                                           '${exercise.name} (${exercise.durationSeconds} วินาที)'
-                                          '${exercise.requiresStanding ? ' ลุกขึ้นทำ' : ''}',
+                                          '${exercise.requiresStanding ? ' - แนะนำให้ลุกขึ้นทำ' : ''}',
                                         ),
                                       ),
                                     ],
@@ -134,12 +134,12 @@ class ExerciseLibraryScreen extends StatelessWidget {
                   Text(
                     'อยู่ในแผนถัดไป',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'MVP นี้ยังไม่เปิดหมวด ข้อมือ และ ตา เพราะข้อมูลท่าบริหารในเอกสารต้นทางยังไม่ครบพอสำหรับ recommendation ที่เชื่อถือได้',
+                    'เวอร์ชันนี้ยังไม่เปิดหมวดข้อมือและตา เพราะข้อมูลท่าบริหารต้นทางยังไม่ครบพอสำหรับ recommendation ที่น่าเชื่อถือ',
                     style: theme.textTheme.bodyMedium,
                   ),
                 ],

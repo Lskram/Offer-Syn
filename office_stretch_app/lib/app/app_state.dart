@@ -7,6 +7,7 @@ import '../data/exercise_catalog.dart';
 import '../models/app_models.dart';
 import '../models/persisted_app_data.dart';
 import '../models/reminder_diagnostics.dart';
+import '../models/reminder_sync_state.dart';
 import '../models/system_notification_sound.dart';
 import '../services/app_persistence.dart';
 import '../services/reminder_scheduler.dart';
@@ -34,6 +35,7 @@ class AppState extends ChangeNotifier {
   DateTime _nextReminderAt = DateTime.now().add(const Duration(minutes: 60));
   ReminderDiagnostics _reminderDiagnostics =
       const ReminderDiagnostics.unsupported();
+  ReminderSyncState _reminderSyncState = const ReminderSyncState.empty();
   Future<void> _sideEffects = Future<void>.value();
   StreamSubscription<String?>? _notificationResponseSubscription;
   bool _hasPendingProgramLaunch = false;
@@ -45,6 +47,7 @@ class AppState extends ChangeNotifier {
   ReminderSettings get settings => _settings;
   DateTime get nextReminderAt => _nextReminderAt;
   ReminderDiagnostics get reminderDiagnostics => _reminderDiagnostics;
+  ReminderSyncState get reminderSyncState => _reminderSyncState;
   bool get hasValidReminderWindow => ReminderTimeline.hasValidWindow(_settings);
   List<ExerciseLog> get logs => List.unmodifiable(_logs.reversed);
   Map<PainArea, List<ExerciseProgram>> get programsByArea =>
@@ -86,6 +89,7 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(persistedData.logs);
       _nextReminderAt = persistedData.nextReminderAt ?? _defaultNextReminder();
+      _reminderSyncState = persistedData.reminderSyncState;
     } else {
       _nextReminderAt = _defaultNextReminder();
     }
@@ -136,6 +140,16 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
   }
 
+  Future<void> maybeRequestNotificationPermissionOnForeground() async {
+    if (!_settings.notificationsEnabled ||
+        !_reminderDiagnostics.supportsPermissionPrompt ||
+        _reminderDiagnostics.notificationsEnabled == true) {
+      return;
+    }
+
+    await requestNotificationPermission();
+  }
+
   Future<void> requestExactAlarmPermission() async {
     await _reminderScheduler.requestExactAlarmPermission();
     await _refreshReminderDiagnostics();
@@ -150,8 +164,23 @@ class AppState extends ChangeNotifier {
     await _reminderScheduler.openBatteryOptimizationSettings();
   }
 
+  Future<void> sendTestNotificationNow() async {
+    await _reminderScheduler.sendTestNotification(
+      settings: _settings,
+      program: _activeProgram,
+    );
+    await _refreshReminderDiagnostics();
+    notifyListeners();
+  }
+
   Future<void> refreshReminderDiagnostics() async {
     await _refreshReminderDiagnostics();
+  }
+
+  Future<void> resyncRemindersNow() async {
+    _queueSideEffects(syncReminders: true);
+    await _sideEffects;
+    notifyListeners();
   }
 
   void handleAppResumed() {
@@ -183,6 +212,12 @@ class AppState extends ChangeNotifier {
 
   void updateVibrationEnabled(bool value) {
     _settings = _settings.copyWith(vibrationEnabled: value);
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  void updateVibrationLevel(VibrationLevel value) {
+    _settings = _settings.copyWith(vibrationLevel: value);
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
@@ -261,6 +296,7 @@ class AppState extends ChangeNotifier {
       settings: _settings,
       logs: List<ExerciseLog>.from(_logs),
       nextReminderAt: _nextReminderAt,
+      reminderSyncState: _reminderSyncState,
     );
   }
 
@@ -290,19 +326,35 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _syncReminders() async {
-    final schedule = await _reminderScheduler.sync(
-      settings: _settings,
-      requestedStartAt: _normalizedReminder(_nextReminderAt),
-      program: _activeProgram,
-    );
-    await _refreshReminderDiagnostics(notify: false);
+    try {
+      final syncState = await _reminderScheduler.sync(
+        settings: _settings,
+        requestedStartAt: _normalizedReminder(_nextReminderAt),
+        program: _activeProgram,
+      );
+      _reminderSyncState = syncState;
+      await _refreshReminderDiagnostics(notify: false);
 
-    if (schedule.isNotEmpty) {
-      final alignedReminder = schedule.first;
-      if (_nextReminderAt != alignedReminder) {
+      final alignedReminder = syncState.nextReminderAt;
+      if (alignedReminder != null && _nextReminderAt != alignedReminder) {
         _nextReminderAt = alignedReminder;
         notifyListeners();
       }
+    } catch (error) {
+      debugPrint('Reminder sync failed: $error');
+      await _refreshReminderDiagnostics(notify: false);
+      _reminderSyncState = ReminderSyncState(
+        requestedReminderCount: 0,
+        pendingRequestCount: 0,
+        scheduledReminders: const <ScheduledReminderEntry>[],
+        usesExactScheduling: _reminderDiagnostics.usesExactScheduling,
+        notificationsPermissionAtSync:
+            _reminderDiagnostics.notificationsEnabled,
+        syncedAt: _now(),
+        nextReminderAt: _nextReminderAt,
+        lastError: error.toString(),
+      );
+      notifyListeners();
     }
   }
 
@@ -389,17 +441,27 @@ class AppState extends ChangeNotifier {
     if (_activeProgram == null ||
         !_settings.notificationsEnabled ||
         !hasValidReminderWindow ||
-        !_nextReminderAt.isBefore(now)) {
+        !_reminderSyncState.canTrustMissedInference) {
       return;
     }
 
-    var dueReminder = _nextReminderAt;
-    while (dueReminder.isBefore(now)) {
-      final nextDueReminder = ReminderTimeline.alignToWindow(
-        dueReminder.add(Duration(minutes: _settings.intervalMinutes)),
-        _settings,
-        now: DateTime.fromMillisecondsSinceEpoch(0),
-      );
+    final scheduledReminders = _reminderSyncState.scheduledReminders.toList(
+      growable: false,
+    )..sort((left, right) => left.scheduledAt.compareTo(right.scheduledAt));
+
+    for (var index = 0; index < scheduledReminders.length; index += 1) {
+      final dueReminder = scheduledReminders[index].scheduledAt;
+      if (!dueReminder.isBefore(now)) {
+        break;
+      }
+
+      final nextDueReminder = index + 1 < scheduledReminders.length
+          ? scheduledReminders[index + 1].scheduledAt
+          : ReminderTimeline.nextAlignedSlotAtOrAfter(
+              dueReminder.add(Duration(minutes: _settings.intervalMinutes)),
+              _settings,
+              now: DateTime.fromMillisecondsSinceEpoch(0),
+            );
 
       if (nextDueReminder.isAfter(now)) {
         break;
@@ -417,8 +479,6 @@ class AppState extends ChangeNotifier {
           ),
         );
       }
-
-      dueReminder = nextDueReminder;
     }
   }
 

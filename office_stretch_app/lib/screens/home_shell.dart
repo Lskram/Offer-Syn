@@ -21,14 +21,16 @@ class _HomeShellState extends State<HomeShell> {
   int _selectedIndex = 0;
   int _lastHandledLaunchSequence = 0;
   bool _isSessionOpen = false;
+  bool _hasRequestedReminderPermission = false;
 
   @override
   void initState() {
     super.initState();
     widget.appState.addListener(_handleAppStateChanged);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _handleAppStateChanged(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeRequestReminderPermission();
+      _handleAppStateChanged();
+    });
   }
 
   @override
@@ -40,9 +42,10 @@ class _HomeShellState extends State<HomeShell> {
 
     oldWidget.appState.removeListener(_handleAppStateChanged);
     widget.appState.addListener(_handleAppStateChanged);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _handleAppStateChanged(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeRequestReminderPermission();
+      _handleAppStateChanged();
+    });
   }
 
   @override
@@ -110,6 +113,15 @@ class _HomeShellState extends State<HomeShell> {
       }
       _openProgram(program);
     });
+  }
+
+  Future<void> _maybeRequestReminderPermission() async {
+    if (!mounted || _hasRequestedReminderPermission) {
+      return;
+    }
+
+    _hasRequestedReminderPermission = true;
+    await widget.appState.maybeRequestNotificationPermissionOnForeground();
   }
 
   void _openProgram(ExerciseProgram program) {

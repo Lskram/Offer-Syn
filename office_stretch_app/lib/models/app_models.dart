@@ -4,6 +4,7 @@ const defaultReminderSettings = ReminderSettings(
   notificationsEnabled: true,
   soundEnabled: true,
   vibrationEnabled: true,
+  vibrationLevel: VibrationLevel.medium,
   activeStart: TimeOfDay(hour: 8, minute: 0),
   activeEnd: TimeOfDay(hour: 16, minute: 30),
   intervalMinutes: 60,
@@ -17,16 +18,16 @@ extension PainAreaX on PainArea {
       case PainArea.neckShoulders:
         return 'คอ บ่า ไหล่';
       case PainArea.upperBack:
-        return 'สะบัก และหลังส่วนบน';
+        return 'สะบัก และหลังบน';
       case PainArea.lowerBack:
-        return 'หลังส่วนล่าง และเอว';
+        return 'หลังล่าง และเอว';
     }
   }
 
   String get description {
     switch (this) {
       case PainArea.neckShoulders:
-        return 'เหมาะกับคนที่นั่งคอพุ่ง ไหล่ห่อ หรือปวดตึงจากพิมพ์งานนาน';
+        return 'เหมาะกับคนที่นั่งคอพุ่ง ไหล่ห่อ หรือปวดตึงจากการทำงานหน้าคอมนาน';
       case PainArea.upperBack:
         return 'เหมาะกับอาการหลังงุ้ม ตึงระหว่างสะบัก และเมื่อยหลังจากนั่งนาน';
       case PainArea.lowerBack:
@@ -52,11 +53,11 @@ extension PainLevelX on PainLevel {
   String get frequencyHint {
     switch (this) {
       case PainLevel.high:
-        return 'ทุก 30 นาที';
+        return 'เริ่มเตือนทุก 30 นาที';
       case PainLevel.medium:
-        return 'ทุก 45 นาที';
+        return 'เริ่มเตือนทุก 45 นาที';
       case PainLevel.low:
-        return 'ทุก 60 นาที';
+        return 'เริ่มเตือนทุก 60 นาที';
     }
   }
 }
@@ -89,6 +90,32 @@ extension StretchHabitX on StretchHabit {
         return 'บางครั้ง';
       case StretchHabit.often:
         return 'ค่อนข้างบ่อย';
+    }
+  }
+}
+
+enum VibrationLevel { light, medium, strong }
+
+extension VibrationLevelX on VibrationLevel {
+  String get label {
+    switch (this) {
+      case VibrationLevel.light:
+        return 'เบา';
+      case VibrationLevel.medium:
+        return 'กลาง';
+      case VibrationLevel.strong:
+        return 'แรง';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case VibrationLevel.light:
+        return 'สั่นสั้น 1-2 จังหวะ เหมาะกับการแจ้งเตือนทั่วไป';
+      case VibrationLevel.medium:
+        return 'สั่นชัดขึ้น เหมาะกับการใช้งานประจำวัน';
+      case VibrationLevel.strong:
+        return 'สั่นยาวและถี่ขึ้น เหมาะกับคนที่พลาดการเตือนง่าย';
     }
   }
 }
@@ -219,6 +246,7 @@ class ReminderSettings {
     required this.notificationsEnabled,
     required this.soundEnabled,
     required this.vibrationEnabled,
+    required this.vibrationLevel,
     required this.activeStart,
     required this.activeEnd,
     required this.intervalMinutes,
@@ -229,6 +257,7 @@ class ReminderSettings {
   final bool notificationsEnabled;
   final bool soundEnabled;
   final bool vibrationEnabled;
+  final VibrationLevel vibrationLevel;
   final TimeOfDay activeStart;
   final TimeOfDay activeEnd;
   final int intervalMinutes;
@@ -240,6 +269,7 @@ class ReminderSettings {
       'notificationsEnabled': notificationsEnabled,
       'soundEnabled': soundEnabled,
       'vibrationEnabled': vibrationEnabled,
+      'vibrationLevel': vibrationLevel.name,
       'activeStartMinutes': _toMinutes(activeStart),
       'activeEndMinutes': _toMinutes(activeEnd),
       'intervalMinutes': intervalMinutes,
@@ -253,6 +283,9 @@ class ReminderSettings {
       notificationsEnabled: json['notificationsEnabled']! as bool,
       soundEnabled: json['soundEnabled']! as bool,
       vibrationEnabled: json['vibrationEnabled'] as bool? ?? true,
+      vibrationLevel: json['vibrationLevel'] == null
+          ? VibrationLevel.medium
+          : VibrationLevel.values.byName(json['vibrationLevel']! as String),
       activeStart: _fromMinutes(json['activeStartMinutes']! as int),
       activeEnd: _fromMinutes(json['activeEndMinutes']! as int),
       intervalMinutes: json['intervalMinutes']! as int,
@@ -265,6 +298,7 @@ class ReminderSettings {
     bool? notificationsEnabled,
     bool? soundEnabled,
     bool? vibrationEnabled,
+    VibrationLevel? vibrationLevel,
     TimeOfDay? activeStart,
     TimeOfDay? activeEnd,
     int? intervalMinutes,
@@ -276,6 +310,7 @@ class ReminderSettings {
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
+      vibrationLevel: vibrationLevel ?? this.vibrationLevel,
       activeStart: activeStart ?? this.activeStart,
       activeEnd: activeEnd ?? this.activeEnd,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
