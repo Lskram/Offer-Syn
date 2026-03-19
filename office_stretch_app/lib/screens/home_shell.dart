@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../data/exercise_catalog.dart';
 import '../models/app_models.dart';
+import 'alarm_screen.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
 import 'session_screen.dart';
@@ -21,6 +23,7 @@ class _HomeShellState extends State<HomeShell> {
   int _selectedIndex = 0;
   int _lastHandledLaunchSequence = 0;
   bool _isSessionOpen = false;
+  bool _isAlarmOpen = false;
   bool _hasRequestedReminderPermission = false;
 
   @override
@@ -57,7 +60,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(appState: widget.appState, onStartProgram: _openProgram),
+      HomeScreen(appState: widget.appState, onStartPlan: _openPlan),
       ExerciseLibraryScreen(
         appState: widget.appState,
         onStartProgram: _openProgram,
@@ -92,26 +95,26 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _handleAppStateChanged() {
-    if (!mounted || _isSessionOpen) {
+    if (!mounted || _isSessionOpen || _isAlarmOpen) {
       return;
     }
 
-    final launchSequence = widget.appState.pendingProgramLaunchSequence;
+    final launchSequence = widget.appState.pendingReminderLaunchSequence;
     if (launchSequence == _lastHandledLaunchSequence) {
       return;
     }
 
     _lastHandledLaunchSequence = launchSequence;
-    final program = widget.appState.consumePendingProgramLaunch();
-    if (program == null) {
+    final launch = widget.appState.consumePendingReminderLaunch();
+    if (launch == null) {
       return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isSessionOpen) {
+      if (!mounted || _isSessionOpen || _isAlarmOpen) {
         return;
       }
-      _openProgram(program);
+      _openReminderLaunch(launch);
     });
   }
 
@@ -124,7 +127,45 @@ class _HomeShellState extends State<HomeShell> {
     await widget.appState.maybeRequestNotificationPermissionOnForeground();
   }
 
-  void _openProgram(ExerciseProgram program) {
+  Future<void> _openReminderLaunch(PendingReminderLaunch launch) async {
+    if (launch.opensAlarmScreen) {
+      _isAlarmOpen = true;
+      final action = await Navigator.of(context).push<AlarmScreenAction>(
+        MaterialPageRoute<AlarmScreenAction>(
+          builder: (_) => AlarmScreen(launch: launch),
+        ),
+      );
+      _isAlarmOpen = false;
+      if (!mounted) {
+        return;
+      }
+
+      var openedSession = false;
+      switch (action) {
+        case AlarmScreenAction.start:
+          _openPlan(launch.plan, reminderAt: launch.reminderAt);
+          openedSession = true;
+          break;
+        case AlarmScreenAction.snooze:
+          widget.appState.snoozePendingReminder(launch);
+          break;
+        case AlarmScreenAction.dismiss:
+          widget.appState.dismissPendingReminder(launch);
+          break;
+        case null:
+          break;
+      }
+
+      if (!openedSession) {
+        _handleAppStateChanged();
+      }
+      return;
+    }
+
+    _openPlan(launch.plan, reminderAt: launch.reminderAt);
+  }
+
+  void _openPlan(ExercisePlan plan, {DateTime? reminderAt}) {
     if (_isSessionOpen) {
       return;
     }
@@ -135,12 +176,18 @@ class _HomeShellState extends State<HomeShell> {
           MaterialPageRoute<void>(
             builder: (_) => ExerciseSessionScreen(
               appState: widget.appState,
-              program: program,
+              plan: plan,
+              reminderAt: reminderAt,
             ),
           ),
         )
         .whenComplete(() {
           _isSessionOpen = false;
+          _handleAppStateChanged();
         });
+  }
+
+  void _openProgram(ExerciseProgram program) {
+    _openPlan(ExerciseCatalog.buildPlanFromProgram(program));
   }
 }

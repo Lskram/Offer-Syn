@@ -10,26 +10,26 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.appState,
-    required this.onStartProgram,
+    required this.onStartPlan,
   });
 
   final AppState appState;
-  final ValueChanged<ExerciseProgram> onStartProgram;
+  final ValueChanged<ExercisePlan> onStartPlan;
 
   @override
   Widget build(BuildContext context) {
-    final program = appState.activeProgram;
+    final plan = appState.activePlan;
     final profile = appState.profile;
     final theme = Theme.of(context);
 
-    if (program == null || profile == null) {
+    if (plan == null || profile == null) {
       return const SizedBox.shrink();
     }
 
     final totalMinutes =
-        (program.exercises.fold<int>(
+        (plan.exercises.fold<int>(
                   0,
-                  (sum, exercise) => sum + exercise.durationSeconds,
+                  (sum, exercise) => sum + exercise.exercise.durationSeconds,
                 ) /
                 60)
             .ceil();
@@ -44,36 +44,6 @@ class HomeScreen extends StatelessWidget {
         children: [
           const OfficeReliefBrandMark(size: 70, showWordmark: true),
           const SizedBox(height: 18),
-          if (appState.reminderDiagnostics.needsAttention) ...[
-            Card(
-              color: theme.colorScheme.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Reminder needs attention',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      appState.reminderDiagnostics.notificationsEnabled == false
-                          ? 'ตอนนี้เครื่องยังไม่อนุญาต notification หรือถูกปิดไว้ การเตือนจะยังไม่ขึ้นจนกว่าจะเปิดใหม่'
-                          : 'เครื่องนี้ยังอยู่ภายใต้ battery optimization การเตือนตอนจอดำอาจมาช้ากว่าที่ตั้งไว้',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-          ],
           if (appState.hasMissedRemindersToday) ...[
             Card(
               key: AppKeys.homeMissedReminderCard,
@@ -96,7 +66,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'วันนี้พลาดการแจ้งเตือน ${appState.missedRemindersToday} รอบ ระบบบันทึกไว้ในประวัติรายวันแล้ว',
+                            'วันนี้พลาดการแจ้งเตือน ${appState.missedRemindersToday} รอบ',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onTertiaryContainer,
                             ),
@@ -130,20 +100,20 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'แผนวันนี้ของคุณ',
+                  'แผนหลักของวันนี้',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  program.title,
+                  '${plan.groups.length} กลุ่ม • ${plan.exerciseCount} ท่า',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(program.subtitle, style: theme.textTheme.bodyLarge),
+                Text(plan.subtitle, style: theme.textTheme.bodyLarge),
                 const SizedBox(height: 18),
                 Wrap(
                   spacing: 10,
@@ -159,21 +129,8 @@ class HomeScreen extends StatelessWidget {
                       label: '$totalMinutes นาทีต่อรอบ',
                     ),
                     _StatChip(
-                      icon: appState.settings.notificationsEnabled
-                          ? Icons.notifications_active_outlined
-                          : Icons.notifications_off_outlined,
-                      label: appState.settings.notificationsEnabled
-                          ? 'รอบถัดไป $nextReminderText'
-                          : 'ปิดการแจ้งเตือนอยู่',
-                    ),
-                    _StatChip(
-                      icon: switch (appState.settings.vibrationLevel) {
-                        VibrationLevel.light => Icons.vibration_outlined,
-                        VibrationLevel.medium => Icons.vibration_rounded,
-                        VibrationLevel.strong => Icons.priority_high_rounded,
-                      },
-                      label:
-                          'สั่น${appState.settings.vibrationEnabled ? appState.settings.vibrationLevel.label : "ปิด"}',
+                      icon: Icons.notifications_active_outlined,
+                      label: 'รอบถัดไป $nextReminderText',
                     ),
                   ],
                 ),
@@ -183,7 +140,7 @@ class HomeScreen extends StatelessWidget {
                     Expanded(
                       child: FilledButton.icon(
                         key: AppKeys.homeStartProgram,
-                        onPressed: () => onStartProgram(program),
+                        onPressed: () => onStartPlan(plan),
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
@@ -211,26 +168,27 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'สรุปจากแบบสอบถาม',
+                    'สรุปแผนที่เลือก',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _KeyValueRow(
-                    label: 'บริเวณหลัก',
-                    value: profile.painArea.label,
-                  ),
-                  _KeyValueRow(
-                    label: 'ระดับอาการ',
-                    value: profile.painLevel.label,
-                  ),
+                  ...plan.groups.map((group) {
+                    final exerciseCount = plan.exercises
+                        .where((exercise) => exercise.area == group.area)
+                        .length;
+                    return _KeyValueRow(
+                      label: group.area.label,
+                      value: '${group.level.label} • $exerciseCount ท่า',
+                    );
+                  }),
                   _KeyValueRow(
                     label: 'ใช้คอมต่อวัน',
                     value: profile.workHours.label,
                   ),
                   _KeyValueRow(
-                    label: 'นิสัยยืดเส้น',
+                    label: 'นิสัยการยืดเส้น',
                     value: profile.stretchHabit.label,
                   ),
                 ],
@@ -245,46 +203,34 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'แผนท่าวันนี้',
+                    'ท่าที่อยู่ในแผนนี้',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  ...program.exercises.asMap().entries.map((entry) {
-                    final index = entry.key + 1;
-                    final exercise = entry.value;
+                  ...plan.groups.map((group) {
+                    final exercises = plan.exercises
+                        .where((entry) => entry.area == group.area)
+                        .toList(growable: false);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 14),
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor:
-                                theme.colorScheme.secondaryContainer,
-                            child: Text('$index'),
+                          Text(
+                            '${group.area.label} • ${group.level.label}',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  exercise.name,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(exercise.description),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'เวลา ${exercise.durationSeconds} วินาที'
-                                  '${exercise.requiresStanding ? ' และแนะนำให้ลุกขึ้นทำ' : ''}',
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                              ],
+                          const SizedBox(height: 8),
+                          ...exercises.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                '• ${entry.exercise.name} (${entry.exercise.durationSeconds} วินาที)',
+                              ),
                             ),
                           ),
                         ],
@@ -330,28 +276,11 @@ class HomeScreen extends StatelessWidget {
                       ).format(context);
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(switch (log.status) {
-                          ExerciseStatus.done => Icons.check_circle_outline,
-                          ExerciseStatus.skipped => Icons.fast_forward_outlined,
-                          ExerciseStatus.snoozed => Icons.snooze_outlined,
-                          ExerciseStatus.missed =>
-                            Icons.notification_important_outlined,
-                        }),
                         title: Text(log.exerciseName),
-                        subtitle: Text('$time - ${log.status.label}'),
+                        subtitle: Text('$time • ${log.status.label}'),
                       );
                     }),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'คำเตือนด้านสุขภาพ: โปรแกรมนี้ใช้เพื่อดูแลตนเองเบื้องต้น หากมีอาการปวดรุนแรง ชา ร้าว หรือเวียนหัว ควรหยุดทันทีและขอคำแนะนำจากผู้เชี่ยวชาญ',
-                style: theme.textTheme.bodyMedium,
               ),
             ),
           ),
@@ -401,9 +330,7 @@ class _KeyValueRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          ),
+          Expanded(child: Text(label)),
           const SizedBox(width: 12),
           Flexible(
             child: Text(

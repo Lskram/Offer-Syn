@@ -14,6 +14,19 @@ abstract final class AppKeys {
     return ValueKey<String>('questionnaire.painLevel.${value.name}');
   }
 
+  static ValueKey<String> painLevelForAreaOption(
+    PainArea area,
+    PainLevel value,
+  ) {
+    return ValueKey<String>(
+      'questionnaire.painLevel.${area.name}.${value.name}',
+    );
+  }
+
+  static ValueKey<String> exerciseOption(PainArea area, String exerciseId) {
+    return ValueKey<String>('questionnaire.exercise.${area.name}.$exerciseId');
+  }
+
   static ValueKey<String> workHoursOption(WorkHours value) {
     return ValueKey<String>('questionnaire.workHours.${value.name}');
   }
@@ -41,6 +54,7 @@ abstract final class AppKeys {
   static const settingsNotificationsEnabled = ValueKey<String>(
     'settings.notificationsEnabled',
   );
+  static const settingsAlertMode = ValueKey<String>('settings.alertMode');
   static const settingsSoundEnabled = ValueKey<String>('settings.soundEnabled');
   static const settingsVibrationEnabled = ValueKey<String>(
     'settings.vibrationEnabled',
@@ -59,6 +73,8 @@ abstract final class AppKeys {
   static const settingsRequestExactAlarm = ValueKey<String>(
     'settings.requestExactAlarm',
   );
+  static const settingsEditMainPlan = ValueKey<String>('settings.editMainPlan');
+  static const planEditorSave = ValueKey<String>('planEditor.save');
   static const settingsIntervalMinutes = ValueKey<String>(
     'settings.intervalMinutes',
   );
@@ -76,4 +92,9 @@ abstract final class AppKeys {
   static const sessionSnooze = ValueKey<String>('session.snooze');
   static const sessionComplete = ValueKey<String>('session.complete');
   static const sessionFinishClose = ValueKey<String>('session.finish.close');
+
+  static const alarmScreen = ValueKey<String>('screen.alarm');
+  static const alarmStart = ValueKey<String>('alarm.start');
+  static const alarmSnooze = ValueKey<String>('alarm.snooze');
+  static const alarmDismiss = ValueKey<String>('alarm.dismiss');
 }

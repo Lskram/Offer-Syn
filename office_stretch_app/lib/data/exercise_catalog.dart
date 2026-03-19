@@ -249,8 +249,121 @@ class ExerciseCatalog {
     },
   };
 
-  static ExerciseProgram recommend(UserProfile profile) {
-    return _programs[profile.painArea]![profile.painLevel]!;
+  static ExerciseProgram programFor(PainArea area, PainLevel level) {
+    return _programs[area]![level]!;
+  }
+
+  static PainSelection normalizeSelection({
+    required PainArea area,
+    required PainLevel level,
+    Iterable<String> selectedExerciseIds = const <String>[],
+  }) {
+    final program = programFor(area, level);
+    final limit = program.exercises.length >= 2 ? 2 : program.exercises.length;
+    final validIds = program.exercises.map((exercise) => exercise.id).toList();
+    final normalized = <String>[];
+
+    for (final exerciseId in selectedExerciseIds) {
+      if (validIds.contains(exerciseId) && !normalized.contains(exerciseId)) {
+        normalized.add(exerciseId);
+      }
+      if (normalized.length == limit) {
+        break;
+      }
+    }
+
+    for (final exerciseId in validIds) {
+      if (normalized.length == limit) {
+        break;
+      }
+      if (!normalized.contains(exerciseId)) {
+        normalized.add(exerciseId);
+      }
+    }
+
+    return PainSelection(
+      area: area,
+      level: level,
+      selectedExerciseIds: normalized,
+    );
+  }
+
+  static ExercisePlan buildPlan(UserProfile profile) {
+    final normalizedSelections = profile.painSelections
+        .map(
+          (selection) => normalizeSelection(
+            area: selection.area,
+            level: selection.level,
+            selectedExerciseIds: selection.selectedExerciseIds,
+          ),
+        )
+        .toList(growable: false);
+
+    final plannedExercises = <PlannedExercise>[];
+    for (final selection in normalizedSelections) {
+      final program = programFor(selection.area, selection.level);
+      for (final exerciseId in selection.selectedExerciseIds) {
+        final exercise = program.exercises.firstWhere(
+          (entry) => entry.id == exerciseId,
+        );
+        plannedExercises.add(
+          PlannedExercise(
+            area: selection.area,
+            level: selection.level,
+            exercise: exercise,
+          ),
+        );
+      }
+    }
+
+    final reminderInterval = normalizedSelections
+        .map((selection) => selection.level.reminderIntervalMinutes)
+        .fold<int>(120, (current, value) => value < current ? value : current);
+
+    final summary = normalizedSelections
+        .map((selection) => selection.area.label)
+        .join(' • ');
+
+    final id = normalizedSelections
+        .map(
+          (selection) =>
+              '${selection.area.name}:${selection.level.name}:${selection.selectedExerciseIds.join(",")}',
+        )
+        .join('|');
+
+    return ExercisePlan(
+      id: id,
+      title: 'OfficeRelief Main Plan',
+      subtitle: summary,
+      groups: normalizedSelections,
+      exercises: plannedExercises,
+      reminderIntervalMinutes: reminderInterval,
+    );
+  }
+
+  static ExercisePlan buildPlanFromProgram(ExerciseProgram program) {
+    final selection = normalizeSelection(
+      area: program.painArea,
+      level: program.painLevel,
+      selectedExerciseIds: program.exercises.map((exercise) => exercise.id),
+    );
+
+    return ExercisePlan(
+      id: 'library:${program.id}',
+      title: program.title,
+      subtitle: program.subtitle,
+      groups: [selection],
+      exercises: program.exercises
+          .map(
+            (exercise) => PlannedExercise(
+              area: program.painArea,
+              level: program.painLevel,
+              exercise: exercise,
+            ),
+          )
+          .toList(growable: false),
+      reminderIntervalMinutes: program.reminderIntervalMinutes,
+    );
   }
 
   static Map<PainArea, List<ExerciseProgram>> get programsByArea {

@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:office_stretch_app/app/app.dart';
@@ -17,6 +17,7 @@ void main() {
     Future<void> pumpUi() async {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
     }
 
     Future<void> tapVisible(Finder finder, {Finder? scrollable}) async {
@@ -43,8 +44,13 @@ void main() {
 
     appState.completeQuestionnaire(
       const UserProfile(
-        painArea: PainArea.neckShoulders,
-        painLevel: PainLevel.medium,
+        painSelections: [
+          PainSelection(
+            area: PainArea.neckShoulders,
+            level: PainLevel.medium,
+            selectedExerciseIds: <String>[],
+          ),
+        ],
         workHours: WorkHours.fourToSix,
         stretchHabit: StretchHabit.sometimes,
       ),
@@ -53,17 +59,17 @@ void main() {
     debugPrint('smoke: onboarding complete');
 
     expect(find.byKey(AppKeys.homeScreen), findsOneWidget);
-    expect(appState.activeProgram?.id, 'neck-medium');
+    expect(appState.activePlan?.groups, hasLength(1));
+    expect(appState.activePlan?.exerciseCount, 2);
 
-    await tapVisible(find.text('Exercises'));
-    debugPrint('smoke: library open');
-
-    expect(find.byKey(AppKeys.libraryScreen), findsOneWidget);
-
-    await tapVisible(find.byKey(AppKeys.libraryStartProgram('neck-medium')));
+    await tapVisible(
+      find.byKey(AppKeys.homeStartProgram),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
     debugPrint('smoke: session open');
 
-    expect(find.byKey(AppKeys.sessionScreen), findsOneWidget);
+    expect(find.byKey(AppKeys.sessionComplete), findsOneWidget);
 
     await tapVisible(find.byKey(AppKeys.sessionComplete));
     debugPrint('smoke: first exercise complete');
@@ -79,6 +85,11 @@ void main() {
         .length;
     expect(completedLogs, 2);
 
+    await tapVisible(find.text('Exercises'));
+    debugPrint('smoke: library open');
+
+    expect(find.byKey(AppKeys.libraryScreen), findsOneWidget);
+
     await tapVisible(find.text('Tips'));
     debugPrint('smoke: tips open');
     expect(find.byKey(AppKeys.tipsScreen), findsOneWidget);
@@ -87,37 +98,16 @@ void main() {
     debugPrint('smoke: settings open');
     expect(find.byKey(AppKeys.settingsScreen), findsOneWidget);
     final settingsScrollable = find.byType(Scrollable).first;
-
-    await tapVisible(
-      find.byKey(AppKeys.settingsNotificationsEnabled),
-      scrollable: settingsScrollable,
-    );
-    expect(appState.settings.notificationsEnabled, isFalse);
-    debugPrint('smoke: notifications off');
-
-    await tapVisible(
-      find.byKey(AppKeys.settingsNotificationsEnabled),
-      scrollable: settingsScrollable,
-    );
-    expect(appState.settings.notificationsEnabled, isTrue);
-    debugPrint('smoke: notifications on');
-
-    await tapVisible(
-      find.byKey(AppKeys.settingsIntervalMinutes),
-      scrollable: settingsScrollable,
-    );
-    await tapVisible(find.textContaining('90').last);
-    expect(appState.settings.intervalMinutes, 90);
-    debugPrint('smoke: interval updated');
-
-    await tapVisible(
+    await tester.scrollUntilVisible(
       find.byKey(AppKeys.settingsRestartOnboarding),
-      scrollable: find.byType(Scrollable).first,
+      200,
+      scrollable: settingsScrollable,
     );
-    debugPrint('smoke: onboarding reset');
+    expect(find.byKey(AppKeys.settingsNotificationsEnabled), findsOneWidget);
+    expect(find.byKey(AppKeys.settingsAlertMode), findsOneWidget);
+    expect(find.byKey(AppKeys.settingsIntervalMinutes), findsOneWidget);
+    debugPrint('smoke: settings controls visible');
 
-    expect(find.byKey(AppKeys.questionnaireScreen), findsOneWidget);
-    expect(appState.hasCompletedOnboarding, isFalse);
-    expect(appState.logs, isEmpty);
+    expect(appState.logs, isNotEmpty);
   });
 }

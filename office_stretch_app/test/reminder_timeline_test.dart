@@ -7,6 +7,7 @@ void main() {
   test('moves reminders to the next day when outside the active window', () {
     const settings = ReminderSettings(
       notificationsEnabled: true,
+      alertMode: AlertMode.exact,
       soundEnabled: true,
       vibrationEnabled: true,
       vibrationLevel: VibrationLevel.medium,
@@ -37,6 +38,7 @@ void main() {
   test('keeps reminders inside the same workday when still in range', () {
     const settings = ReminderSettings(
       notificationsEnabled: true,
+      alertMode: AlertMode.exact,
       soundEnabled: true,
       vibrationEnabled: true,
       vibrationLevel: VibrationLevel.medium,
@@ -69,6 +71,7 @@ void main() {
   test('anchors the next slot to the user work start time', () {
     const settings = ReminderSettings(
       notificationsEnabled: true,
+      alertMode: AlertMode.exact,
       soundEnabled: true,
       vibrationEnabled: true,
       vibrationLevel: VibrationLevel.medium,
@@ -91,6 +94,7 @@ void main() {
   test('supports overnight work windows that cross midnight', () {
     const settings = ReminderSettings(
       notificationsEnabled: true,
+      alertMode: AlertMode.exact,
       soundEnabled: true,
       vibrationEnabled: true,
       vibrationLevel: VibrationLevel.medium,
@@ -113,6 +117,7 @@ void main() {
   test('treats identical start and end times as invalid', () {
     const settings = ReminderSettings(
       notificationsEnabled: true,
+      alertMode: AlertMode.exact,
       soundEnabled: true,
       vibrationEnabled: true,
       vibrationLevel: VibrationLevel.medium,

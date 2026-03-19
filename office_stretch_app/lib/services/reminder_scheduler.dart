@@ -31,19 +31,21 @@ abstract class ReminderScheduler {
 
   Future<void> openBatteryOptimizationSettings();
 
+  Future<void> openFullScreenIntentSettings();
+
   Future<SystemNotificationSound?> pickSystemNotificationSound({
     String? existingUri,
   });
 
   Future<void> sendTestNotification({
     required ReminderSettings settings,
-    required ExerciseProgram? program,
+    required ExercisePlan? plan,
   });
 
   Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
-    required ExerciseProgram? program,
+    required ExercisePlan? plan,
   });
 }
 
@@ -74,6 +76,9 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<void> openBatteryOptimizationSettings() async {}
 
   @override
+  Future<void> openFullScreenIntentSettings() async {}
+
+  @override
   Future<void> openNotificationSettings() async {}
 
   @override
@@ -86,16 +91,16 @@ class NoopReminderScheduler implements ReminderScheduler {
   @override
   Future<void> sendTestNotification({
     required ReminderSettings settings,
-    required ExerciseProgram? program,
+    required ExercisePlan? plan,
   }) async {}
 
   @override
   Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
-    required ExerciseProgram? program,
+    required ExercisePlan? plan,
   }) async {
-    if (!settings.notificationsEnabled || program == null) {
+    if (!settings.notificationsEnabled || plan == null) {
       return const ReminderSyncState.empty();
     }
 
@@ -117,6 +122,7 @@ class NoopReminderScheduler implements ReminderScheduler {
           ),
       ],
       usesExactScheduling: false,
+      usesFullScreenIntent: false,
       notificationsPermissionAtSync: true,
       syncedAt: DateTime.now(),
       nextReminderAt: schedule.isEmpty ? null : schedule.first,
@@ -219,10 +225,20 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       debugPrint('Failed to read battery optimization state: $error');
     }
 
+    bool? fullScreenIntentEnabled;
+    try {
+      fullScreenIntentEnabled = await _settingsChannel.invokeMethod<bool>(
+        'canUseFullScreenIntent',
+      );
+    } catch (error) {
+      debugPrint('Failed to read full-screen intent state: $error');
+    }
+
     return ReminderDiagnostics.android(
       notificationsEnabled: notificationsEnabled,
       ignoresBatteryOptimizations: ignoresBatteryOptimizations,
       exactAlarmsEnabled: exactAlarmsEnabled,
+      fullScreenIntentEnabled: fullScreenIntentEnabled,
     );
   }
 
@@ -274,6 +290,19 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   }
 
   @override
+  Future<void> openFullScreenIntentSettings() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+
+    try {
+      await _settingsChannel.invokeMethod<void>('openFullScreenIntentSettings');
+    } catch (error) {
+      debugPrint('Failed to open full-screen intent settings: $error');
+    }
+  }
+
+  @override
   Future<SystemNotificationSound?> pickSystemNotificationSound({
     String? existingUri,
   }) async {
@@ -305,30 +334,40 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   Future<ReminderSyncState> sync({
     required ReminderSettings settings,
     required DateTime requestedStartAt,
-    required ExerciseProgram? program,
+    required ExercisePlan? plan,
   }) async {
     final syncedAt = DateTime.now();
     await _cancelManagedNotifications();
     await _cleanupManagedChannels(
-      retainChannelId: settings.notificationsEnabled && program != null
+      retainChannelId: settings.notificationsEnabled && plan != null
           ? _resolveChannelId(settings)
           : null,
     );
 
     if (!settings.notificationsEnabled ||
-        program == null ||
+        plan == null ||
         !ReminderTimeline.hasValidWindow(settings)) {
       return ReminderSyncState(
         requestedReminderCount: 0,
         pendingRequestCount: 0,
         scheduledReminders: const <ScheduledReminderEntry>[],
         usesExactScheduling: false,
+        usesFullScreenIntent: false,
         notificationsPermissionAtSync: await _readNotificationsEnabled(),
         syncedAt: syncedAt,
       );
     }
 
+    final program = plan;
+
     final canUseExactAlarms = await _canScheduleExactAlarms();
+    final canUseFullScreenIntent = await _canUseFullScreenIntent();
+    final usesExactScheduling =
+        settings.alertMode.prefersExactScheduling && canUseExactAlarms;
+    final usesFullScreenIntent =
+        usesExactScheduling &&
+        settings.alertMode.prefersFullScreenIntent &&
+        canUseFullScreenIntent;
     final schedule = ReminderTimeline.buildSchedule(
       requestedStartAt: requestedStartAt,
       settings: settings,
@@ -338,6 +377,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     final details = _buildNotificationDetails(
       settings: settings,
       channelId: channelId,
+      usesFullScreenIntent: usesFullScreenIntent,
     );
 
     for (var index = 0; index < schedule.length; index += 1) {
@@ -349,11 +389,14 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
             '${program.title} • ${program.exercises.length} ท่า • รอบละ ${settings.intervalMinutes} นาที',
         scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
         notificationDetails: details,
-        payload: jsonEncode(<String, Object?>{
-          'programId': program.id,
-          'reminderAt': scheduledAt.toIso8601String(),
-        }),
-        androidScheduleMode: canUseExactAlarms
+        payload: jsonEncode(
+          ReminderLaunchPayload(
+            planId: plan.id,
+            reminderAt: scheduledAt,
+            alertMode: settings.alertMode,
+          ).toJson(),
+        ),
+        androidScheduleMode: usesExactScheduling
             ? AndroidScheduleMode.exactAllowWhileIdle
             : AndroidScheduleMode.inexactAllowWhileIdle,
       );
@@ -373,7 +416,8 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
               scheduledAt: schedule[index],
             ),
       ],
-      usesExactScheduling: canUseExactAlarms,
+      usesExactScheduling: usesExactScheduling,
+      usesFullScreenIntent: usesFullScreenIntent,
       notificationsPermissionAtSync: await _readNotificationsEnabled(),
       syncedAt: syncedAt,
       nextReminderAt: schedule.isEmpty ? null : schedule.first,
@@ -383,14 +427,21 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   @override
   Future<void> sendTestNotification({
     required ReminderSettings settings,
-    required ExerciseProgram? program,
+    required ExercisePlan? plan,
   }) async {
     await _requestPermissionsIfNeeded();
+    final program = plan;
 
     final channelId = _resolveChannelId(settings);
+    final usesFullScreenIntent =
+        settings.alertMode.prefersFullScreenIntent &&
+        settings.alertMode.prefersExactScheduling &&
+        await _canUseFullScreenIntent() &&
+        await _canScheduleExactAlarms();
     final details = _buildNotificationDetails(
       settings: settings,
       channelId: channelId,
+      usesFullScreenIntent: usesFullScreenIntent,
     );
 
     await _plugin.show(
@@ -400,10 +451,13 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
           ? 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนของแอปทำงานแล้ว'
           : 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนพร้อมสำหรับโปรแกรม ${program.title}',
       notificationDetails: details,
-      payload: jsonEncode(<String, Object?>{
-        'programId': program?.id,
-        'test': true,
-      }),
+      payload: jsonEncode(
+        ReminderLaunchPayload(
+          planId: program?.id,
+          alertMode: settings.alertMode,
+          isTest: true,
+        ).toJson(),
+      ),
     );
   }
 
@@ -473,6 +527,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   NotificationDetails _buildNotificationDetails({
     required ReminderSettings settings,
     required String channelId,
+    required bool usesFullScreenIntent,
   }) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -488,6 +543,14 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         vibrationPattern: settings.vibrationEnabled
             ? _resolveVibrationPattern(settings.vibrationLevel)
             : null,
+        visibility: NotificationVisibility.public,
+        category: usesFullScreenIntent
+            ? AndroidNotificationCategory.alarm
+            : AndroidNotificationCategory.reminder,
+        fullScreenIntent: usesFullScreenIntent,
+        audioAttributesUsage: settings.alertMode.prefersExactScheduling
+            ? AudioAttributesUsage.alarm
+            : AudioAttributesUsage.notification,
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,
@@ -576,6 +639,23 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
 
   Future<bool> _canScheduleExactAlarms() async {
     return await _readExactAlarmCapability() ?? true;
+  }
+
+  Future<bool?> _readFullScreenIntentCapability() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return null;
+    }
+
+    try {
+      return await _settingsChannel.invokeMethod<bool>('canUseFullScreenIntent');
+    } catch (error) {
+      debugPrint('Failed to inspect full-screen intent capability: $error');
+      return null;
+    }
+  }
+
+  Future<bool> _canUseFullScreenIntent() async {
+    return await _readFullScreenIntentCapability() ?? true;
   }
 
   Future<bool?> _readNotificationsEnabled() async {

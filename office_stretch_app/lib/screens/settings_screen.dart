@@ -4,6 +4,7 @@ import '../app/app_keys.dart';
 import '../app/app_state.dart';
 import '../models/app_models.dart';
 import '../models/reminder_diagnostics.dart';
+import 'plan_editor_screen.dart';
 import '../widgets/office_relief_brand_mark.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -52,6 +53,44 @@ class SettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
+                    'Main plan',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'แก้ไขกลุ่มปวด ระดับความปวด ท่าที่เลือก และช่วงเวลาเตือนได้จากหน้าเดียว',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    key: AppKeys.settingsEditMainPlan,
+                    onPressed: appState.profile == null
+                        ? null
+                        : () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    PlanEditorScreen(appState: appState),
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('แก้ไขแผนหลัก'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     'Reminder schedule',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
@@ -75,6 +114,46 @@ class SettingsScreen extends StatelessWidget {
                     value: settings.notificationsEnabled,
                     onChanged: appState.updateNotificationsEnabled,
                   ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<AlertMode>(
+                    key: AppKeys.settingsAlertMode,
+                    isExpanded: true,
+                    initialValue: settings.alertMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Alert mode',
+                    ),
+                    items: AlertMode.values
+                        .map(
+                          (value) => DropdownMenuItem<AlertMode>(
+                            value: value,
+                            child: Text(value.label),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: canEditAlertStyle
+                        ? (value) {
+                            if (value != null) {
+                              appState.updateAlertMode(value);
+                            }
+                          }
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    settings.alertMode.description,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  if (settings.alertMode == AlertMode.exactFullScreen &&
+                      diagnostics.fullScreenIntentEnabled == false) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Full-screen intent is not enabled yet. The app will fall back to a high-priority notification until you allow it.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   SwitchListTile(
                     key: AppKeys.settingsSoundEnabled,
                     contentPadding: EdgeInsets.zero,
@@ -383,7 +462,17 @@ class _ReminderReadinessCard extends StatelessWidget {
             ),
             _StatusRow(
               label: 'Schedule mode',
-              value: diagnostics.scheduleModeLabel,
+              value: syncState.scheduleModeLabel,
+            ),
+            _StatusRow(
+              label: 'Full-screen intent',
+              value: diagnostics.isAndroid
+                  ? switch (diagnostics.fullScreenIntentEnabled) {
+                      true => 'Ready',
+                      false => 'Not allowed',
+                      null => 'Unknown',
+                    }
+                  : 'Not applicable',
             ),
             _StatusRow(
               label: 'Confirmed reminders',
@@ -466,6 +555,12 @@ class _ReminderReadinessCard extends StatelessWidget {
                     onPressed: appState.openBatteryOptimizationSettings,
                     icon: const Icon(Icons.battery_saver_outlined),
                     label: const Text('ตั้งค่า Battery'),
+                  ),
+                if (diagnostics.supportsFullScreenIntentSettings)
+                  OutlinedButton.icon(
+                    onPressed: appState.openFullScreenIntentSettings,
+                    icon: const Icon(Icons.open_in_full_outlined),
+                    label: const Text('Full-screen intent'),
                   ),
                 TextButton.icon(
                   onPressed: appState.refreshReminderDiagnostics,

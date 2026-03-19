@@ -11,11 +11,13 @@ class ExerciseSessionScreen extends StatefulWidget {
   const ExerciseSessionScreen({
     super.key,
     required this.appState,
-    required this.program,
+    required this.plan,
+    this.reminderAt,
   });
 
   final AppState appState;
-  final ExerciseProgram program;
+  final ExercisePlan plan;
+  final DateTime? reminderAt;
 
   @override
   State<ExerciseSessionScreen> createState() => _ExerciseSessionScreenState();
@@ -29,7 +31,8 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
   int _skippedCount = 0;
   bool _isTransitioning = false;
 
-  Exercise get _currentExercise => widget.program.exercises[_exerciseIndex];
+  PlannedExercise get _currentEntry => widget.plan.exercises[_exerciseIndex];
+  Exercise get _currentExercise => _currentEntry.exercise;
 
   @override
   void initState() {
@@ -45,14 +48,15 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final exercise = _currentExercise;
+    final entry = _currentEntry;
+    final exercise = entry.exercise;
     final progress =
         1 - (_remainingSeconds / exercise.durationSeconds.clamp(1, 3600));
     final theme = Theme.of(context);
 
     return Scaffold(
       key: AppKeys.sessionScreen,
-      appBar: AppBar(title: Text(widget.program.title)),
+      appBar: AppBar(title: Text(widget.plan.title)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -60,7 +64,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ท่า ${_exerciseIndex + 1} / ${widget.program.exercises.length}',
+                'ท่า ${_exerciseIndex + 1} / ${widget.plan.exercises.length}',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -76,6 +80,13 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
               Text(exercise.description, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 10),
               Text(
+                '${entry.area.label} | ${entry.level.label}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
                 'เหตุผล: ${exercise.reason}',
                 style: theme.textTheme.bodyMedium,
               ),
@@ -84,47 +95,69 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          height: 180,
-                          width: 180,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CircularProgressIndicator(
-                                value: progress.clamp(0, 1),
-                                strokeWidth: 12,
-                              ),
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _formatSeconds(_remainingSeconds),
-                                    style: theme.textTheme.displaySmall
-                                        ?.copyWith(fontWeight: FontWeight.w800),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final dialSize = constraints.maxHeight < 280
+                            ? 132.0
+                            : constraints.maxHeight < 340
+                            ? 152.0
+                            : 180.0;
+
+                        return SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  height: dialSize,
+                                  width: dialSize,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        value: progress.clamp(0, 1),
+                                        strokeWidth: 12,
+                                      ),
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _formatSeconds(_remainingSeconds),
+                                            style: theme.textTheme.displaySmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            exercise.requiresStanding
+                                                ? 'แนะนำให้ลุกขึ้นทำ'
+                                                : 'ทำได้ขณะนั่ง',
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    exercise.requiresStanding
-                                        ? 'แนะนำให้ลุกขึ้นทำ'
-                                        : 'ทำได้ขณะนั่ง',
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                                const SizedBox(height: 20),
+                                LinearProgressIndicator(
+                                  value: progress.clamp(0, 1),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'เมื่อครบเวลา ระบบจะเลื่อนไปท่าถัดไปให้อัตโนมัติ',
+                                  style: theme.textTheme.bodyMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        LinearProgressIndicator(value: progress.clamp(0, 1)),
-                        const SizedBox(height: 12),
-                        Text(
-                          'เมื่อครบเวลา ระบบจะเลื่อนไปท่าถัดไปให้อัตโนมัติ',
-                          style: theme.textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -212,7 +245,11 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
     _ticker?.cancel();
 
     final exercise = _currentExercise;
-    widget.appState.logExercise(exercise, status);
+    widget.appState.logExercise(
+      exercise,
+      status,
+      reminderAt: widget.reminderAt,
+    );
 
     if (status == ExerciseStatus.done) {
       _completedCount += 1;
@@ -228,8 +265,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
       return;
     }
 
-    final isLastExercise =
-        _exerciseIndex == widget.program.exercises.length - 1;
+    final isLastExercise = _exerciseIndex == widget.plan.exercises.length - 1;
     if (isLastExercise) {
       widget.appState.rescheduleAfterSession();
       if (!mounted) {

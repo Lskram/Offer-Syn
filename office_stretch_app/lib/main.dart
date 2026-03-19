@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'app/app.dart';
 import 'app/app_state.dart';
 import 'services/app_persistence.dart';
+import 'services/device_automation.dart';
 import 'services/reminder_scheduler.dart';
 
 Future<void> main() async {
@@ -14,6 +15,7 @@ Future<void> main() async {
     reminderScheduler: _createReminderScheduler(),
   );
   await appState.initialize();
+  await runPendingDeviceAutomation(appState);
 
   runApp(OfficeStretchApp(appState: appState));
 }

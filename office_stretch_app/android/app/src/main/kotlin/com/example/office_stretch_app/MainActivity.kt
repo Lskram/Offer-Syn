@@ -1,11 +1,14 @@
 package com.example.office_stretch_app
 
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -14,7 +17,19 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val notificationSoundPickerRequestCode = 2048
+    private var pendingAutomationCommand: Map<String, Any?>? = null
     private var pendingSoundPickerResult: MethodChannel.Result? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        captureAutomationIntent(intent)
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        captureAutomationIntent(intent)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -36,8 +51,35 @@ class MainActivity : FlutterActivity() {
                     result.success(openBatteryOptimizationSettings())
                 }
 
+                "canUseFullScreenIntent" -> {
+                    result.success(canUseFullScreenIntent())
+                }
+
+                "openFullScreenIntentSettings" -> {
+                    result.success(openFullScreenIntentSettings())
+                }
+
+                "getActiveNotifications" -> {
+                    result.success(getActiveNotifications())
+                }
+
                 "pickNotificationSound" -> {
                     pickNotificationSound(call.argument("existingUri"), result)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "office_stretch_app/device_automation",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "takePendingAutomationCommand" -> {
+                    val command = pendingAutomationCommand
+                    pendingAutomationCommand = null
+                    result.success(command)
                 }
 
                 else -> result.notImplemented()
@@ -128,6 +170,58 @@ class MainActivity : FlutterActivity() {
         return startIntentSafely(fallbackIntent)
     }
 
+    private fun canUseFullScreenIntent(): Boolean? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return true
+        }
+
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        return notificationManager?.canUseFullScreenIntent()
+    }
+
+    private fun openFullScreenIntentSettings(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return openAppNotificationSettings()
+        }
+
+        val intent =
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                data = Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+        if (startIntentSafely(intent)) {
+            return true
+        }
+
+        return openAppNotificationSettings()
+    }
+
+    private fun getActiveNotifications(): List<Map<String, Any?>> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return emptyList()
+        }
+
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return emptyList()
+
+        return notificationManager.activeNotifications
+            .filter { it.packageName == packageName }
+            .map { statusBarNotification ->
+                val notification = statusBarNotification.notification
+                mapOf(
+                    "id" to statusBarNotification.id,
+                    "tag" to statusBarNotification.tag,
+                    "channelId" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) notification.channelId else null,
+                    "category" to notification.category,
+                    "hasFullScreenIntent" to (notification.fullScreenIntent != null),
+                    "title" to notification.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+                    "text" to notification.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+                )
+            }
+    }
+
     private fun pickNotificationSound(existingUri: String?, result: MethodChannel.Result) {
         if (pendingSoundPickerResult != null) {
             result.error("picker_busy", "Notification sound picker is already open", null)
@@ -178,5 +272,28 @@ class MainActivity : FlutterActivity() {
         } else {
             false
         }
+    }
+
+    private fun captureAutomationIntent(intent: Intent?) {
+        if (intent == null) {
+            return
+        }
+
+        val action = intent.getStringExtra("codexAction") ?: return
+        if (action != "prepareScheduledReminder") {
+            return
+        }
+
+        pendingAutomationCommand =
+            mapOf(
+                "action" to action,
+                "alertMode" to intent.getStringExtra("alertMode"),
+                "intervalMinutes" to intent.getIntExtra("intervalMinutes", 1),
+                "delayMinutes" to intent.getIntExtra("delayMinutes", 1),
+                "startHour" to intent.getIntExtra("startHour", 0),
+                "startMinute" to intent.getIntExtra("startMinute", 0),
+                "endHour" to intent.getIntExtra("endHour", 23),
+                "endMinute" to intent.getIntExtra("endMinute", 59),
+            )
     }
 }

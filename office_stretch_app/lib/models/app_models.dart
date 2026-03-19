@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 const defaultReminderSettings = ReminderSettings(
   notificationsEnabled: true,
+  alertMode: AlertMode.exact,
   soundEnabled: true,
   vibrationEnabled: true,
   vibrationLevel: VibrationLevel.medium,
@@ -9,6 +10,36 @@ const defaultReminderSettings = ReminderSettings(
   activeEnd: TimeOfDay(hour: 16, minute: 30),
   intervalMinutes: 60,
 );
+
+enum AlertMode { notification, exact, exactFullScreen }
+
+extension AlertModeX on AlertMode {
+  String get label {
+    switch (this) {
+      case AlertMode.notification:
+        return 'Normal notification';
+      case AlertMode.exact:
+        return 'Exact alarm';
+      case AlertMode.exactFullScreen:
+        return 'Exact + full-screen';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case AlertMode.notification:
+        return 'Standard reminder notification with no exact alarm request.';
+      case AlertMode.exact:
+        return 'Uses exact alarm when the device allows it, otherwise falls back.';
+      case AlertMode.exactFullScreen:
+        return 'Uses exact alarm and requests full-screen delivery when allowed.';
+    }
+  }
+
+  bool get prefersExactScheduling => this != AlertMode.notification;
+
+  bool get prefersFullScreenIntent => this == AlertMode.exactFullScreen;
+}
 
 enum PainArea { neckShoulders, upperBack, lowerBack }
 
@@ -58,6 +89,17 @@ extension PainLevelX on PainLevel {
         return 'เริ่มเตือนทุก 45 นาที';
       case PainLevel.low:
         return 'เริ่มเตือนทุก 60 นาที';
+    }
+  }
+
+  int get reminderIntervalMinutes {
+    switch (this) {
+      case PainLevel.high:
+        return 30;
+      case PainLevel.medium:
+        return 45;
+      case PainLevel.low:
+        return 60;
     }
   }
 }
@@ -137,32 +179,97 @@ extension ExerciseStatusX on ExerciseStatus {
   }
 }
 
+class PainSelection {
+  const PainSelection({
+    required this.area,
+    required this.level,
+    required this.selectedExerciseIds,
+  });
+
+  final PainArea area;
+  final PainLevel level;
+  final List<String> selectedExerciseIds;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'area': area.name,
+      'level': level.name,
+      'selectedExerciseIds': selectedExerciseIds,
+    };
+  }
+
+  factory PainSelection.fromJson(Map<String, Object?> json) {
+    return PainSelection(
+      area: PainArea.values.byName(json['area']! as String),
+      level: PainLevel.values.byName(json['level']! as String),
+      selectedExerciseIds:
+          (json['selectedExerciseIds'] as List<Object?>? ?? const <Object?>[])
+              .cast<String>(),
+    );
+  }
+
+  PainSelection copyWith({
+    PainArea? area,
+    PainLevel? level,
+    List<String>? selectedExerciseIds,
+  }) {
+    return PainSelection(
+      area: area ?? this.area,
+      level: level ?? this.level,
+      selectedExerciseIds: selectedExerciseIds ?? this.selectedExerciseIds,
+    );
+  }
+}
+
 class UserProfile {
   const UserProfile({
-    required this.painArea,
-    required this.painLevel,
+    required this.painSelections,
     required this.workHours,
     required this.stretchHabit,
   });
 
-  final PainArea painArea;
-  final PainLevel painLevel;
+  final List<PainSelection> painSelections;
   final WorkHours workHours;
   final StretchHabit stretchHabit;
 
+  bool get hasSelections => painSelections.isNotEmpty;
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
-      'painArea': painArea.name,
-      'painLevel': painLevel.name,
+      'painSelections': painSelections
+          .map((selection) => selection.toJson())
+          .toList(growable: false),
       'workHours': workHours.name,
       'stretchHabit': stretchHabit.name,
     };
   }
 
   factory UserProfile.fromJson(Map<String, Object?> json) {
+    final selectionsJson = json['painSelections'];
+    if (selectionsJson is List<Object?>) {
+      return UserProfile(
+        painSelections: selectionsJson
+            .cast<Map<Object?, Object?>>()
+            .map(
+              (selectionJson) =>
+                  PainSelection.fromJson(selectionJson.cast<String, Object?>()),
+            )
+            .toList(growable: false),
+        workHours: WorkHours.values.byName(json['workHours']! as String),
+        stretchHabit: StretchHabit.values.byName(
+          json['stretchHabit']! as String,
+        ),
+      );
+    }
+
     return UserProfile(
-      painArea: PainArea.values.byName(json['painArea']! as String),
-      painLevel: PainLevel.values.byName(json['painLevel']! as String),
+      painSelections: [
+        PainSelection(
+          area: PainArea.values.byName(json['painArea']! as String),
+          level: PainLevel.values.byName(json['painLevel']! as String),
+          selectedExerciseIds: const <String>[],
+        ),
+      ],
       workHours: WorkHours.values.byName(json['workHours']! as String),
       stretchHabit: StretchHabit.values.byName(json['stretchHabit']! as String),
     );
@@ -207,6 +314,90 @@ class ExerciseProgram {
   final List<Exercise> exercises;
 }
 
+class PlannedExercise {
+  const PlannedExercise({
+    required this.area,
+    required this.level,
+    required this.exercise,
+  });
+
+  final PainArea area;
+  final PainLevel level;
+  final Exercise exercise;
+}
+
+class ExercisePlan {
+  const ExercisePlan({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.groups,
+    required this.exercises,
+    required this.reminderIntervalMinutes,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final List<PainSelection> groups;
+  final List<PlannedExercise> exercises;
+  final int reminderIntervalMinutes;
+
+  int get exerciseCount => exercises.length;
+}
+
+class ReminderLaunchPayload {
+  const ReminderLaunchPayload({
+    this.planId,
+    this.reminderAt,
+    this.alertMode,
+    this.isTest = false,
+  });
+
+  final String? planId;
+  final DateTime? reminderAt;
+  final AlertMode? alertMode;
+  final bool isTest;
+
+  factory ReminderLaunchPayload.fromJson(Map<String, Object?> json) {
+    return ReminderLaunchPayload(
+      planId: json['planId'] as String? ?? json['programId'] as String?,
+      reminderAt: json['reminderAt'] == null
+          ? null
+          : DateTime.parse(json['reminderAt']! as String),
+      alertMode: json['alertMode'] == null
+          ? null
+          : AlertMode.values.byName(json['alertMode']! as String),
+      isTest: json['test'] as bool? ?? false,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'planId': planId,
+      'reminderAt': reminderAt?.toIso8601String(),
+      'alertMode': alertMode?.name,
+      'test': isTest,
+    };
+  }
+}
+
+class PendingReminderLaunch {
+  const PendingReminderLaunch({
+    required this.plan,
+    required this.alertMode,
+    this.reminderAt,
+    this.isTest = false,
+  });
+
+  final ExercisePlan plan;
+  final AlertMode alertMode;
+  final DateTime? reminderAt;
+  final bool isTest;
+
+  bool get opensAlarmScreen => alertMode.prefersFullScreenIntent;
+}
+
 class ExerciseLog {
   const ExerciseLog({
     required this.exerciseName,
@@ -244,6 +435,7 @@ class ExerciseLog {
 class ReminderSettings {
   const ReminderSettings({
     required this.notificationsEnabled,
+    required this.alertMode,
     required this.soundEnabled,
     required this.vibrationEnabled,
     required this.vibrationLevel,
@@ -255,6 +447,7 @@ class ReminderSettings {
   });
 
   final bool notificationsEnabled;
+  final AlertMode alertMode;
   final bool soundEnabled;
   final bool vibrationEnabled;
   final VibrationLevel vibrationLevel;
@@ -267,6 +460,7 @@ class ReminderSettings {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'notificationsEnabled': notificationsEnabled,
+      'alertMode': alertMode.name,
       'soundEnabled': soundEnabled,
       'vibrationEnabled': vibrationEnabled,
       'vibrationLevel': vibrationLevel.name,
@@ -281,6 +475,9 @@ class ReminderSettings {
   factory ReminderSettings.fromJson(Map<String, Object?> json) {
     return ReminderSettings(
       notificationsEnabled: json['notificationsEnabled']! as bool,
+      alertMode: json['alertMode'] == null
+          ? AlertMode.exact
+          : AlertMode.values.byName(json['alertMode']! as String),
       soundEnabled: json['soundEnabled']! as bool,
       vibrationEnabled: json['vibrationEnabled'] as bool? ?? true,
       vibrationLevel: json['vibrationLevel'] == null
@@ -296,6 +493,7 @@ class ReminderSettings {
 
   ReminderSettings copyWith({
     bool? notificationsEnabled,
+    AlertMode? alertMode,
     bool? soundEnabled,
     bool? vibrationEnabled,
     VibrationLevel? vibrationLevel,
@@ -308,6 +506,7 @@ class ReminderSettings {
   }) {
     return ReminderSettings(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      alertMode: alertMode ?? this.alertMode,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
       vibrationLevel: vibrationLevel ?? this.vibrationLevel,

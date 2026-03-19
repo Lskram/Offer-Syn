@@ -29,7 +29,7 @@ class AppState extends ChangeNotifier {
   final NowGetter _now;
 
   UserProfile? _profile;
-  ExerciseProgram? _activeProgram;
+  ExercisePlan? _activePlan;
   ReminderSettings _settings = defaultReminderSettings;
   final List<ExerciseLog> _logs = <ExerciseLog>[];
   DateTime _nextReminderAt = DateTime.now().add(const Duration(minutes: 60));
@@ -38,12 +38,12 @@ class AppState extends ChangeNotifier {
   ReminderSyncState _reminderSyncState = const ReminderSyncState.empty();
   Future<void> _sideEffects = Future<void>.value();
   StreamSubscription<String?>? _notificationResponseSubscription;
-  bool _hasPendingProgramLaunch = false;
+  PendingReminderLaunch? _pendingReminderLaunch;
   int _programLaunchSequence = 0;
 
   bool get hasCompletedOnboarding => _profile != null;
   UserProfile? get profile => _profile;
-  ExerciseProgram? get activeProgram => _activeProgram;
+  ExercisePlan? get activePlan => _activePlan;
   ReminderSettings get settings => _settings;
   DateTime get nextReminderAt => _nextReminderAt;
   ReminderDiagnostics get reminderDiagnostics => _reminderDiagnostics;
@@ -53,7 +53,7 @@ class AppState extends ChangeNotifier {
   Map<PainArea, List<ExerciseProgram>> get programsByArea =>
       ExerciseCatalog.programsByArea;
   List<TipArticle> get tips => ExerciseCatalog.tips;
-  int get pendingProgramLaunchSequence => _programLaunchSequence;
+  int get pendingReminderLaunchSequence => _programLaunchSequence;
 
   int get missedRemindersToday {
     final today = _now();
@@ -81,9 +81,7 @@ class AppState extends ChangeNotifier {
 
     if (persistedData != null) {
       _profile = persistedData.profile;
-      _activeProgram = _profile == null
-          ? null
-          : ExerciseCatalog.recommend(_profile!);
+      _activePlan = _profile == null ? null : ExerciseCatalog.buildPlan(_profile!);
       _settings = persistedData.settings;
       _logs
         ..clear()
@@ -113,10 +111,21 @@ class AppState extends ChangeNotifier {
   }
 
   void completeQuestionnaire(UserProfile profile) {
+    savePlan(profile: profile);
+  }
+
+  void savePlan({
+    required UserProfile profile,
+    int? intervalMinutes,
+    TimeOfDay? activeStart,
+    TimeOfDay? activeEnd,
+  }) {
     _profile = profile;
-    _activeProgram = ExerciseCatalog.recommend(profile);
+    _activePlan = ExerciseCatalog.buildPlan(profile);
     _settings = _settings.copyWith(
-      intervalMinutes: _activeProgram!.reminderIntervalMinutes,
+      intervalMinutes: intervalMinutes ?? _activePlan!.reminderIntervalMinutes,
+      activeStart: activeStart ?? _settings.activeStart,
+      activeEnd: activeEnd ?? _settings.activeEnd,
     );
     _nextReminderAt = _defaultNextReminder();
     notifyListeners();
@@ -125,11 +134,11 @@ class AppState extends ChangeNotifier {
 
   void restartOnboarding() {
     _profile = null;
-    _activeProgram = null;
+    _activePlan = null;
     _logs.clear();
     _settings = defaultReminderSettings;
     _nextReminderAt = _defaultNextReminder();
-    _hasPendingProgramLaunch = false;
+    _pendingReminderLaunch = null;
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
@@ -164,10 +173,14 @@ class AppState extends ChangeNotifier {
     await _reminderScheduler.openBatteryOptimizationSettings();
   }
 
+  Future<void> openFullScreenIntentSettings() async {
+    await _reminderScheduler.openFullScreenIntentSettings();
+  }
+
   Future<void> sendTestNotificationNow() async {
     await _reminderScheduler.sendTestNotification(
       settings: _settings,
-      program: _activeProgram,
+      plan: _activePlan,
     );
     await _refreshReminderDiagnostics();
     notifyListeners();
@@ -189,13 +202,14 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
   }
 
-  ExerciseProgram? consumePendingProgramLaunch() {
-    if (!_hasPendingProgramLaunch || _activeProgram == null) {
+  PendingReminderLaunch? consumePendingReminderLaunch() {
+    final launch = _pendingReminderLaunch;
+    if (launch == null) {
       return null;
     }
 
-    _hasPendingProgramLaunch = false;
-    return _activeProgram;
+    _pendingReminderLaunch = null;
+    return launch;
   }
 
   void updateNotificationsEnabled(bool value) {
@@ -206,6 +220,12 @@ class AppState extends ChangeNotifier {
 
   void updateSoundEnabled(bool value) {
     _settings = _settings.copyWith(soundEnabled: value);
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  void updateAlertMode(AlertMode value) {
+    _settings = _settings.copyWith(alertMode: value);
     notifyListeners();
     _queueSideEffects(syncReminders: true);
   }
@@ -261,12 +281,17 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
   }
 
-  void logExercise(Exercise exercise, ExerciseStatus status) {
+  void logExercise(
+    Exercise exercise,
+    ExerciseStatus status, {
+    DateTime? reminderAt,
+  }) {
     _appendLog(
       ExerciseLog(
         exerciseName: exercise.name,
         status: status,
         occurredAt: _now(),
+        reminderAt: reminderAt,
       ),
     );
     notifyListeners();
@@ -287,8 +312,37 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
   }
 
+  void snoozePendingReminder(
+    PendingReminderLaunch launch, [
+    int minutes = 10,
+  ]) {
+    _logReminderAction(
+      status: ExerciseStatus.snoozed,
+      reminderAt: launch.reminderAt,
+      fallbackLabel: launch.plan.title,
+    );
+    _nextReminderAt = _normalizedReminder(
+      _now().add(Duration(minutes: minutes)),
+    );
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  void dismissPendingReminder(PendingReminderLaunch launch) {
+    _logReminderAction(
+      status: ExerciseStatus.skipped,
+      reminderAt: launch.reminderAt,
+      fallbackLabel: launch.plan.title,
+    );
+    _nextReminderAt = _defaultNextReminder();
+    notifyListeners();
+    _queueSideEffects(syncReminders: true);
+  }
+
+  Future<void> waitForIdle() => _sideEffects;
+
   @visibleForTesting
-  Future<void> settleSideEffects() => _sideEffects;
+  Future<void> settleSideEffects() => waitForIdle();
 
   PersistedAppData _buildSnapshot() {
     return PersistedAppData(
@@ -330,7 +384,7 @@ class AppState extends ChangeNotifier {
       final syncState = await _reminderScheduler.sync(
         settings: _settings,
         requestedStartAt: _normalizedReminder(_nextReminderAt),
-        program: _activeProgram,
+        plan: _activePlan,
       );
       _reminderSyncState = syncState;
       await _refreshReminderDiagnostics(notify: false);
@@ -348,6 +402,7 @@ class AppState extends ChangeNotifier {
         pendingRequestCount: 0,
         scheduledReminders: const <ScheduledReminderEntry>[],
         usesExactScheduling: _reminderDiagnostics.usesExactScheduling,
+        usesFullScreenIntent: false,
         notificationsPermissionAtSync:
             _reminderDiagnostics.notificationsEnabled,
         syncedAt: _now(),
@@ -410,17 +465,22 @@ class AppState extends ChangeNotifier {
   }
 
   void _handleNotificationPayload(String? payload) {
-    final programId = _extractProgramId(payload);
-    if (_activeProgram == null || programId != _activeProgram!.id) {
+    final launchPayload = _parseReminderLaunchPayload(payload);
+    if (_activePlan == null || launchPayload?.planId != _activePlan!.id) {
       return;
     }
 
-    _hasPendingProgramLaunch = true;
+    _pendingReminderLaunch = PendingReminderLaunch(
+      plan: _activePlan!,
+      alertMode: launchPayload?.alertMode ?? _settings.alertMode,
+      reminderAt: launchPayload?.reminderAt,
+      isTest: launchPayload?.isTest ?? false,
+    );
     _programLaunchSequence += 1;
     notifyListeners();
   }
 
-  String? _extractProgramId(String? payload) {
+  ReminderLaunchPayload? _parseReminderLaunchPayload(String? payload) {
     if (payload == null || payload.isEmpty) {
       return null;
     }
@@ -428,17 +488,17 @@ class AppState extends ChangeNotifier {
     try {
       final decoded = jsonDecode(payload);
       if (decoded is Map<String, dynamic>) {
-        return decoded['programId'] as String?;
+        return ReminderLaunchPayload.fromJson(decoded);
       }
     } catch (_) {
       // Fallback to the legacy payload format where the program id was stored directly.
     }
 
-    return payload;
+    return ReminderLaunchPayload(planId: payload);
   }
 
   void _reconcileMissedReminders({required DateTime now}) {
-    if (_activeProgram == null ||
+    if (_activePlan == null ||
         !_settings.notificationsEnabled ||
         !hasValidReminderWindow ||
         !_reminderSyncState.canTrustMissedInference) {
@@ -468,7 +528,7 @@ class AppState extends ChangeNotifier {
       }
 
       if (!_hasCompletedBetween(dueReminder, nextDueReminder) &&
-          !_hasMissedLogFor(dueReminder)) {
+          !_hasHandledReminder(dueReminder)) {
         _appendLog(
           ExerciseLog(
             exerciseName:
@@ -491,11 +551,34 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  bool _hasMissedLogFor(DateTime reminderAt) {
+  bool _hasHandledReminder(DateTime reminderAt) {
     return _logs.any(
-      (log) =>
-          log.status == ExerciseStatus.missed &&
-          log.reminderAt?.isAtSameMomentAs(reminderAt) == true,
+      (log) => log.reminderAt?.isAtSameMomentAs(reminderAt) == true,
+    );
+  }
+
+  void _logReminderAction({
+    required ExerciseStatus status,
+    required DateTime? reminderAt,
+    required String fallbackLabel,
+  }) {
+    final actionLabel = switch (status) {
+      ExerciseStatus.snoozed => 'เลื่อนแจ้งเตือนรอบ',
+      ExerciseStatus.skipped => 'ปิดแจ้งเตือนรอบ',
+      ExerciseStatus.done => 'ทำตามแจ้งเตือนรอบ',
+      ExerciseStatus.missed => 'พลาดแจ้งเตือนรอบ',
+    };
+    final timeLabel = reminderAt == null
+        ? fallbackLabel
+        : _formatReminderTime(reminderAt);
+
+    _appendLog(
+      ExerciseLog(
+        exerciseName: '$actionLabel $timeLabel',
+        status: status,
+        occurredAt: _now(),
+        reminderAt: reminderAt,
+      ),
     );
   }
 

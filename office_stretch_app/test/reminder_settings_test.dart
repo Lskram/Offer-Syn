@@ -14,6 +14,7 @@ void main() {
 
     expect(settings.vibrationEnabled, isTrue);
     expect(settings.vibrationLevel, VibrationLevel.medium);
+    expect(settings.alertMode, AlertMode.exact);
     expect(settings.notificationSoundUri, isNull);
     expect(settings.notificationSoundLabel, isNull);
   });
@@ -21,6 +22,7 @@ void main() {
   test('clearNotificationSound removes custom sound metadata', () {
     const settings = ReminderSettings(
       notificationsEnabled: true,
+      alertMode: AlertMode.exact,
       soundEnabled: true,
       vibrationEnabled: true,
       vibrationLevel: VibrationLevel.strong,

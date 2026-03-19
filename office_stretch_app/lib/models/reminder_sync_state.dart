@@ -28,6 +28,7 @@ class ReminderSyncState {
     required this.pendingRequestCount,
     required this.scheduledReminders,
     required this.usesExactScheduling,
+    required this.usesFullScreenIntent,
     required this.notificationsPermissionAtSync,
     this.syncedAt,
     this.nextReminderAt,
@@ -39,6 +40,7 @@ class ReminderSyncState {
       pendingRequestCount = 0,
       scheduledReminders = const <ScheduledReminderEntry>[],
       usesExactScheduling = false,
+      usesFullScreenIntent = false,
       notificationsPermissionAtSync = null,
       syncedAt = null,
       nextReminderAt = null,
@@ -48,6 +50,7 @@ class ReminderSyncState {
   final int pendingRequestCount;
   final List<ScheduledReminderEntry> scheduledReminders;
   final bool usesExactScheduling;
+  final bool usesFullScreenIntent;
   final bool? notificationsPermissionAtSync;
   final DateTime? syncedAt;
   final DateTime? nextReminderAt;
@@ -59,8 +62,12 @@ class ReminderSyncState {
       pendingRequestCount > 0 &&
       scheduledReminders.isNotEmpty;
 
-  String get scheduleModeLabel =>
-      usesExactScheduling ? 'exactAllowWhileIdle' : 'inexactAllowWhileIdle';
+  String get scheduleModeLabel {
+    if (usesFullScreenIntent) {
+      return 'exact + full-screen';
+    }
+    return usesExactScheduling ? 'exactAllowWhileIdle' : 'inexactAllowWhileIdle';
+  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -70,6 +77,7 @@ class ReminderSyncState {
           .map((entry) => entry.toJson())
           .toList(growable: false),
       'usesExactScheduling': usesExactScheduling,
+      'usesFullScreenIntent': usesFullScreenIntent,
       'notificationsPermissionAtSync': notificationsPermissionAtSync,
       'syncedAt': syncedAt?.toIso8601String(),
       'nextReminderAt': nextReminderAt?.toIso8601String(),
@@ -92,6 +100,7 @@ class ReminderSyncState {
           )
           .toList(growable: false),
       usesExactScheduling: json['usesExactScheduling'] as bool? ?? false,
+      usesFullScreenIntent: json['usesFullScreenIntent'] as bool? ?? false,
       notificationsPermissionAtSync:
           json['notificationsPermissionAtSync'] as bool?,
       syncedAt: json['syncedAt'] == null
