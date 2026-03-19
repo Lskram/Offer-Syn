@@ -3,15 +3,17 @@ package com.example.office_stretch_app
 import android.content.Intent
 import android.os.Bundle
 
-class MainActivity : BaseFlutterActivity() {
+class AlarmActivity : BaseFlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        captureAutomationIntent(intent)
+        enableAlarmWindowBehavior()
+        captureAlarmLaunchIntent(intent)
         super.onCreate(savedInstanceState)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        captureAutomationIntent(intent)
+        enableAlarmWindowBehavior()
+        captureAlarmLaunchIntent(intent)
     }
 }

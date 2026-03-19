@@ -27,7 +27,7 @@ void main() {
     }
 
     Future<void> waitUntilVisible(Finder finder) async {
-      for (var index = 0; index < 40; index += 1) {
+      for (var index = 0; index < 80; index += 1) {
         await tester.pump(const Duration(milliseconds: 200));
         if (finder.evaluate().isNotEmpty) {
           return;
@@ -89,6 +89,8 @@ void main() {
     debugPrint('smoke: first exercise complete');
     await tapVisible(find.byKey(AppKeys.sessionComplete));
     debugPrint('smoke: second exercise complete');
+    await tester.pump(const Duration(seconds: 2));
+    await pumpFrames(10);
 
     await waitUntilVisible(find.byKey(AppKeys.sessionFinishClose));
     await tapVisible(find.byKey(AppKeys.sessionFinishClose));

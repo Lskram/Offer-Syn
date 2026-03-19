@@ -49,6 +49,7 @@ class AppState extends ChangeNotifier {
   ReminderDiagnostics get reminderDiagnostics => _reminderDiagnostics;
   ReminderSyncState get reminderSyncState => _reminderSyncState;
   bool get hasValidReminderWindow => ReminderTimeline.hasValidWindow(_settings);
+  bool get hasPendingReminderLaunch => _pendingReminderLaunch != null;
   List<ExerciseLog> get logs => List.unmodifiable(_logs.reversed);
   DateTime get currentTime => _now();
   Map<PainArea, List<ExerciseProgram>> get programsByArea =>
@@ -213,6 +214,10 @@ class AppState extends ChangeNotifier {
 
     _pendingReminderLaunch = null;
     return launch;
+  }
+
+  void stageReminderLaunchPayload(String payload) {
+    _handleNotificationPayload(payload);
   }
 
   void updateNotificationsEnabled(bool value) {

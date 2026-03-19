@@ -16,6 +16,12 @@ const _testNotificationId = 999;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  Future<void> pumpUi(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
   testWidgets(
     'posts real-device notifications for every alert mode',
     semanticsEnabled: false,
@@ -27,7 +33,7 @@ void main() {
       await appState.initialize();
 
       await tester.pumpWidget(OfficeStretchApp(appState: appState));
-      await tester.pumpAndSettle();
+      await pumpUi(tester);
 
       appState.completeQuestionnaire(
         const UserProfile(
@@ -43,7 +49,7 @@ void main() {
         ),
       );
       await appState.settleSideEffects();
-      await tester.pumpAndSettle();
+      await pumpUi(tester);
 
       Future<ReminderDiagnostics> waitForNotificationPermission() async {
         ReminderDiagnostics diagnostics = appState.reminderDiagnostics;

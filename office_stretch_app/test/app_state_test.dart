@@ -317,6 +317,46 @@ void main() {
     expect(launch.reminderAt, DateTime(2026, 3, 18, 9));
   });
 
+  test('staging a native reminder payload produces a pending alarm launch', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final profile = buildProfile();
+    final plan = ExerciseCatalog.buildPlan(profile);
+    final persistence = InMemoryAppPersistence();
+    await persistence.save(
+      PersistedAppData(
+        profile: profile,
+        settings: defaultReminderSettings.copyWith(
+          alertMode: AlertMode.exactFullScreen,
+        ),
+        logs: const <ExerciseLog>[],
+        nextReminderAt: DateTime(2026, 3, 18, 9),
+      ),
+    );
+
+    final state = AppState(
+      persistence: persistence,
+      reminderScheduler: TestReminderScheduler(() => now),
+      now: () => now,
+    );
+
+    await state.initialize();
+    state.stageReminderLaunchPayload(
+      jsonEncode(
+        ReminderLaunchPayload(
+          planId: plan.id,
+          reminderAt: DateTime(2026, 3, 18, 9),
+          alertMode: AlertMode.exactFullScreen,
+        ).toJson(),
+      ),
+    );
+
+    final launch = state.consumePendingReminderLaunch();
+    expect(launch, isNotNull);
+    expect(launch!.plan.id, plan.id);
+    expect(launch.opensAlarmScreen, isTrue);
+    expect(launch.reminderAt, DateTime(2026, 3, 18, 9));
+  });
+
   test('dismissed reminders are not later marked missed for the same slot', () async {
     var now = DateTime(2026, 3, 18, 8, 5);
     final state = AppState(
