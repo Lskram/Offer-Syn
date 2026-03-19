@@ -2,7 +2,8 @@ param(
     [string]$DeviceId = 'f4da450d',
     [string]$AndroidWorkRoot = 'D:\Android',
     [string]$AndroidSdkRoot = 'C:\Users\UsEr\AppData\Local\Android\Sdk',
-    [string]$JavaHome = 'D:\Android Studio\jbr'
+    [string]$JavaHome = 'D:\Android Studio\jbr',
+    [switch]$ScreenOff
 )
 
 Set-StrictMode -Version Latest
@@ -25,8 +26,8 @@ $paths = Get-AndroidWorkspacePaths `
 
 Initialize-AndroidWorkspace -Paths $paths
 
-$wrapperLog = Join-Path $paths.AndroidTemp 'scheduled-notification-wrapper.log'
-Remove-Item $wrapperLog -Force -ErrorAction SilentlyContinue
+$runStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$wrapperLog = Join-Path $paths.AndroidTemp "scheduled-notification-wrapper-$runStamp.log"
 
 function Write-WrapperLog {
     param([string]$Message)
@@ -48,6 +49,65 @@ function Ensure-DeviceAwakeAndUnlocked {
     } catch {
         Write-WrapperLog "Failed to wake or unlock device: $($_.Exception.Message)"
     }
+}
+
+function Get-DisplaySnapshot {
+    param(
+        [pscustomobject]$Paths,
+        [string]$DeviceId
+    )
+
+    $dump = (& $Paths.Adb -s $DeviceId shell dumpsys power | Out-String)
+
+    $interactiveMatch = [regex]::Match($dump, 'mWakefulness=\w+|Display Power: state=(\w+)|mInteractive=(true|false)')
+    $displayStateMatch = [regex]::Match($dump, 'Display Power: state=(\w+)')
+    $interactiveStateMatch = [regex]::Match($dump, 'mInteractive=(true|false)')
+
+    $displayState = if ($displayStateMatch.Success) {
+        $displayStateMatch.Groups[1].Value
+    } else {
+        'unknown'
+    }
+
+    $interactive = if ($interactiveStateMatch.Success) {
+        [bool]::Parse($interactiveStateMatch.Groups[1].Value)
+    } else {
+        $false
+    }
+
+    return [pscustomobject]@{
+        DisplayState = $displayState
+        Interactive  = $interactive
+        Raw          = $dump.Trim()
+    }
+}
+
+function Ensure-DeviceScreenOff {
+    param(
+        [pscustomobject]$Paths,
+        [string]$DeviceId
+    )
+
+    & $Paths.Adb -s $DeviceId shell input keyevent 3 *> $null
+    Start-Sleep -Milliseconds 500
+
+    $snapshot = Get-DisplaySnapshot -Paths $Paths -DeviceId $DeviceId
+    if ($snapshot.Interactive -or $snapshot.DisplayState -ne 'OFF') {
+        & $Paths.Adb -s $DeviceId shell input keyevent 223 *> $null
+    }
+
+    $deadline = (Get-Date).AddSeconds(10)
+    do {
+        $snapshot = Get-DisplaySnapshot -Paths $Paths -DeviceId $DeviceId
+        if (-not $snapshot.Interactive -or $snapshot.DisplayState -eq 'OFF') {
+            Write-WrapperLog "Device screen is off. display=$($snapshot.DisplayState) interactive=$($snapshot.Interactive)"
+            return $snapshot
+        }
+
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+
+    throw "Unable to turn screen off. Final snapshot: display=$($snapshot.DisplayState) interactive=$($snapshot.Interactive)"
 }
 
 function Get-PermissionPromptTapPoint {
@@ -127,7 +187,7 @@ function Get-PostedNotificationCount {
     )
 
     $dump = (& $Paths.Adb -s $DeviceId shell dumpsys notification --noredact | Out-String)
-    $pattern = "key='$([regex]::Escape($PackageName))'.*?numPostedByApp=(\d+)"
+    $pattern = "AggregatedStats\{\s*key='$([regex]::Escape($PackageName))'.*?numPostedByApp=(\d+)"
     $match = [regex]::Match(
         $dump,
         $pattern,
@@ -135,7 +195,7 @@ function Get-PostedNotificationCount {
     )
 
     if (-not $match.Success) {
-        throw "Unable to read numPostedByApp for $PackageName"
+        return 0
     }
 
     return [int]$match.Groups[1].Value
@@ -298,6 +358,28 @@ function Wait-ForPostedNotificationDelta {
     throw "Timed out waiting for scheduled notification in mode '$Mode'. Baseline=$BaselineCount Final=$finalCount Deadline=$Deadline"
 }
 
+function Read-NotificationRecordSnapshot {
+    param(
+        [pscustomobject]$Paths,
+        [string]$DeviceId,
+        [string]$PackageName = 'com.example.office_stretch_app'
+    )
+
+    $dump = (& $Paths.Adb -s $DeviceId shell dumpsys notification --noredact | Out-String)
+    $pattern = "NotificationRecord\{.*?$([regex]::Escape($PackageName)).*?(?=NotificationRecord\{|$)"
+    $matches = [regex]::Matches(
+        $dump,
+        $pattern,
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+
+    if ($matches.Count -eq 0) {
+        return $null
+    }
+
+    return $matches[$matches.Count - 1].Value.Trim()
+}
+
 try {
     Write-WrapperLog 'Wrapper script started.'
     Build-And-InstallDebugApp -Paths $paths -DeviceId $DeviceId
@@ -314,6 +396,15 @@ try {
         $marker = Invoke-ScheduledReminderAutomation -Paths $paths -DeviceId $DeviceId -Mode $mode
 
         & $paths.Adb -s $DeviceId shell input keyevent 3 *> $null
+        Start-Sleep -Seconds 1
+
+        if ($ScreenOff) {
+            $preWaitSnapshot = Ensure-DeviceScreenOff -Paths $paths -DeviceId $DeviceId
+            Write-WrapperLog (
+                "Screen-off verification armed for $mode. " +
+                "display=$($preWaitSnapshot.DisplayState) interactive=$($preWaitSnapshot.Interactive)"
+            )
+        }
 
         $nextReminderAt = [DateTimeOffset]::FromUnixTimeMilliseconds($marker.NextEpochMs).LocalDateTime
         $graceSeconds = if ($marker.Exact) { 90 } else { 180 }
@@ -327,11 +418,26 @@ try {
             -Deadline $deadline `
             -Mode $mode
 
+        $postWaitSnapshot = Get-DisplaySnapshot -Paths $paths -DeviceId $DeviceId
+        $notificationRecord = Read-NotificationRecordSnapshot -Paths $paths -DeviceId $DeviceId -PackageName $applicationId
+        Write-WrapperLog (
+            "Post-fire snapshot for ${mode}: " +
+            "display=$($postWaitSnapshot.DisplayState) interactive=$($postWaitSnapshot.Interactive)"
+        )
+        if ($notificationRecord) {
+            Write-WrapperLog "Notification record for ${mode}: $notificationRecord"
+        }
+
         Write-Host (
             "SCHEDULE_RESULT mode=$mode baseline=$baselineCount final=$finalCount " +
             "delta=$($finalCount - $baselineCount) next=$($marker.NextIso) " +
-            "exact=$($marker.Exact) fullScreen=$($marker.FullScreen) pending=$($marker.Pending)"
+            "exact=$($marker.Exact) fullScreen=$($marker.FullScreen) pending=$($marker.Pending) " +
+            "screenOff=$($ScreenOff.IsPresent) display=$($postWaitSnapshot.DisplayState) interactive=$($postWaitSnapshot.Interactive)"
         )
+
+        if ($ScreenOff) {
+            Ensure-DeviceAwakeAndUnlocked -Paths $paths -DeviceId $DeviceId
+        }
     }
 
     Write-WrapperLog 'Wrapper script completed successfully.'

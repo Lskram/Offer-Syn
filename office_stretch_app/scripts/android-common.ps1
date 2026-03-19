@@ -53,11 +53,27 @@ function Ensure-Junction {
 
     if (Test-Path $Path) {
         $item = Get-Item $Path -Force
-        if ($item.LinkType -eq 'Junction' -and $item.Target -contains $Target) {
+        $isReparsePoint = ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+        $knownTargets = @($item.Target)
+
+        if (
+            $isReparsePoint -and
+            ($item.LinkType -eq 'Junction' -or [string]::IsNullOrEmpty($item.LinkType)) -and
+            ($knownTargets.Count -eq 0 -or $knownTargets -contains $Target)
+        ) {
             return
         }
 
-        Remove-Item $Path -Recurse -Force
+        try {
+            Remove-Item $Path -Recurse -Force
+        } catch {
+            if ($isReparsePoint) {
+                Write-Warning "Reusing locked reparse point at $Path"
+                return
+            }
+
+            throw
+        }
     }
 
     New-Item -ItemType Junction -Path $Path -Target $Target | Out-Null

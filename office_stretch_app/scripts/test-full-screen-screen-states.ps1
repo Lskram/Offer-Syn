@@ -23,10 +23,10 @@ $paths = Get-AndroidWorkspacePaths `
 
 Initialize-AndroidWorkspace -Paths $paths
 
-$wrapperLog = Join-Path $paths.AndroidTemp 'full-screen-screen-states-wrapper.log'
-$stdout = Join-Path $paths.AndroidTemp 'full-screen-screen-states.stdout.log'
-$stderr = Join-Path $paths.AndroidTemp 'full-screen-screen-states.stderr.log'
-Remove-Item $wrapperLog, $stdout, $stderr -Force -ErrorAction SilentlyContinue
+$runStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$wrapperLog = Join-Path $paths.AndroidTemp "full-screen-screen-states-wrapper-$runStamp.log"
+$stdout = Join-Path $paths.AndroidTemp "full-screen-screen-states-$runStamp.stdout.log"
+$stderr = Join-Path $paths.AndroidTemp "full-screen-screen-states-$runStamp.stderr.log"
 
 function Write-WrapperLog {
     param([string]$Message)

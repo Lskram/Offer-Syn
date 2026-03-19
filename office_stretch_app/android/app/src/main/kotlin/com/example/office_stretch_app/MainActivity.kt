@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -21,6 +22,7 @@ class MainActivity : FlutterActivity() {
     private var pendingSoundPickerResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableAlarmWindowBehavior()
         captureAutomationIntent(intent)
         super.onCreate(savedInstanceState)
     }
@@ -28,6 +30,7 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        enableAlarmWindowBehavior()
         captureAutomationIntent(intent)
     }
 
@@ -272,6 +275,20 @@ class MainActivity : FlutterActivity() {
         } else {
             false
         }
+    }
+
+    private fun enableAlarmWindowBehavior() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            return
+        }
+
+        @Suppress("DEPRECATION")
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+        )
     }
 
     private fun captureAutomationIntent(intent: Intent?) {

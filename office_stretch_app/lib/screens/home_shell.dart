@@ -31,8 +31,10 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     widget.appState.addListener(_handleAppStateChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeRequestReminderPermission();
       _handleAppStateChanged();
+      if (!_isAlarmOpen && !_isSessionOpen) {
+        _maybeRequestReminderPermission();
+      }
     });
   }
 
@@ -46,8 +48,10 @@ class _HomeShellState extends State<HomeShell> {
     oldWidget.appState.removeListener(_handleAppStateChanged);
     widget.appState.addListener(_handleAppStateChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeRequestReminderPermission();
       _handleAppStateChanged();
+      if (!_isAlarmOpen && !_isSessionOpen) {
+        _maybeRequestReminderPermission();
+      }
     });
   }
 

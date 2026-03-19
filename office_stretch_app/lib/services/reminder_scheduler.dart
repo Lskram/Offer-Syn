@@ -368,8 +368,11 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         usesExactScheduling &&
         settings.alertMode.prefersFullScreenIntent &&
         canUseFullScreenIntent;
+    final safeRequestedStartAt = requestedStartAt.isAfter(syncedAt)
+        ? requestedStartAt
+        : syncedAt.add(const Duration(seconds: 1));
     final schedule = ReminderTimeline.buildSchedule(
-      requestedStartAt: requestedStartAt,
+      requestedStartAt: safeRequestedStartAt,
       settings: settings,
       maxEntries: _maxScheduledNotifications,
     );
