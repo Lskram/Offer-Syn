@@ -6,6 +6,11 @@ import '../app/app_keys.dart';
 import '../data/exercise_catalog.dart';
 import '../models/app_models.dart';
 
+const _chipSelectedColor = Color(0xFF0F5FC9);
+const _chipSelectedTextColor = Colors.white;
+const _chipUnselectedTextColor = Color(0xFF082A4B);
+const _chipUnselectedBackgroundColor = Color(0xFFF6FBFF);
+
 class PlanEditorResult {
   const PlanEditorResult({
     required this.profile,
@@ -115,6 +120,16 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
               return FilterChip(
                 key: AppKeys.painAreaOption(area),
                 label: Text(area.label),
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? _chipSelectedTextColor
+                      : _chipUnselectedTextColor,
+                  fontWeight: FontWeight.w700,
+                ),
+                backgroundColor: _chipUnselectedBackgroundColor,
+                selectedColor: _chipSelectedColor,
+                checkmarkColor: _chipSelectedTextColor,
+                side: const BorderSide(color: Color(0xFF0F5FC9)),
                 selected: isSelected,
                 onSelected: (selected) => setState(() {
                   if (selected) {
@@ -190,10 +205,20 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
               spacing: 10,
               runSpacing: 10,
               children: PainLevel.values.map((value) {
+                final isSelected = level == value;
                 return ChoiceChip(
                   key: AppKeys.painLevelForAreaOption(area, value),
                   label: Text(value.label),
-                  selected: level == value,
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? _chipSelectedTextColor
+                        : _chipUnselectedTextColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  backgroundColor: _chipUnselectedBackgroundColor,
+                  selectedColor: _chipSelectedColor,
+                  side: const BorderSide(color: Color(0xFF0F5FC9)),
+                  selected: isSelected,
                   onSelected: (_) => setState(() {
                     _painLevels[area] = value;
                     _normalizeAreaSelection(area);
@@ -237,6 +262,16 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
                     return FilterChip(
                       key: AppKeys.exerciseOption(area, exercise.id),
                       label: Text(exercise.name),
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? _chipSelectedTextColor
+                            : _chipUnselectedTextColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      backgroundColor: _chipUnselectedBackgroundColor,
+                      selectedColor: _chipSelectedColor,
+                      checkmarkColor: _chipSelectedTextColor,
+                      side: const BorderSide(color: Color(0xFF0F5FC9)),
                       selected: isSelected,
                       onSelected: (_) => setState(() {
                         final updated = List<String>.from(selectedIds);
@@ -451,10 +486,20 @@ class _SelectionSection<T> extends StatelessWidget {
         spacing: 10,
         runSpacing: 10,
         children: values.map((value) {
+          final isSelected = selected == value;
           return ChoiceChip(
             key: keyBuilder(value),
             label: Text(labelBuilder(value)),
-            selected: selected == value,
+            labelStyle: TextStyle(
+              color: isSelected
+                  ? _chipSelectedTextColor
+                  : _chipUnselectedTextColor,
+              fontWeight: FontWeight.w700,
+            ),
+            backgroundColor: _chipUnselectedBackgroundColor,
+            selectedColor: _chipSelectedColor,
+            side: const BorderSide(color: Color(0xFF0F5FC9)),
+            selected: isSelected,
             onSelected: (_) => onSelected(value),
           );
         }).toList(growable: false),

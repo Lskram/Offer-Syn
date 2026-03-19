@@ -181,7 +181,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     );
     const windows = WindowsInitializationSettings(
       appName: 'OfficeRelief',
-      appUserModelId: 'com.codex.office_stretch_app',
+      appUserModelId: 'com.lskram.officerelief',
       guid: 'e0178c83-b38b-4d2b-aa5a-6ddc6bb1d24e',
     );
 

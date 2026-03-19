@@ -1,4 +1,4 @@
-package com.example.office_stretch_app
+package com.lskram.officerelief
 
 import android.app.Activity
 import android.content.Intent
@@ -7,8 +7,8 @@ import org.json.JSONObject
 
 class EntryActivity : Activity() {
     companion object {
-        const val ACTION_ALARM_FULLSCREEN = "office_stretch_app.action.ALARM_FULLSCREEN"
-        const val EXTRA_ALARM_PAYLOAD = "office_stretch_app.extra.ALARM_PAYLOAD"
+        const val ACTION_ALARM_FULLSCREEN = "com.lskram.officerelief.action.ALARM_FULLSCREEN"
+        const val EXTRA_ALARM_PAYLOAD = "com.lskram.officerelief.extra.ALARM_PAYLOAD"
 
         private const val payloadExtraKey = "payload"
         private const val selectNotificationAction = "SELECT_NOTIFICATION"

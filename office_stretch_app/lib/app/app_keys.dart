@@ -38,6 +38,7 @@ abstract final class AppKeys {
   static const homeScreen = ValueKey<String>('screen.home');
   static const homeStartProgram = ValueKey<String>('home.startProgram');
   static const homeSnoozeReminder = ValueKey<String>('home.snoozeReminder');
+  static const homeEditMainPlan = ValueKey<String>('home.editMainPlan');
   static const homeMissedReminderCard = ValueKey<String>(
     'home.missedReminderCard',
   );
@@ -75,6 +76,9 @@ abstract final class AppKeys {
     'settings.requestExactAlarm',
   );
   static const settingsEditMainPlan = ValueKey<String>('settings.editMainPlan');
+  static ValueKey<String> settingsPermissionInfo(String id) {
+    return ValueKey<String>('settings.permissionInfo.$id');
+  }
   static const planEditorSave = ValueKey<String>('planEditor.save');
   static const settingsIntervalMinutes = ValueKey<String>(
     'settings.intervalMinutes',

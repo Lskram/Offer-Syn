@@ -11,10 +11,12 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.appState,
     required this.onStartPlan,
+    required this.onEditPlan,
   });
 
   final AppState appState;
   final ValueChanged<ExercisePlan> onStartPlan;
+  final VoidCallback onEditPlan;
 
   @override
   Widget build(BuildContext context) {
@@ -82,82 +84,103 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
           ],
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFE9F7FF),
-                  Color(0xFFD8F8FF),
-                  Color(0xFFF4FFD4),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'แผนหลักของวันนี้',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${plan.groups.length} กลุ่ม • ${plan.exerciseCount} ท่า',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(plan.subtitle, style: theme.textTheme.bodyLarge),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _StatChip(
-                      icon: Icons.schedule,
-                      label:
-                          'เตือนทุก ${appState.settings.intervalMinutes} นาที',
-                    ),
-                    _StatChip(
-                      icon: Icons.timer_outlined,
-                      label: '$totalMinutes นาทีต่อรอบ',
-                    ),
-                    _StatChip(
-                      icon: Icons.notifications_active_outlined,
-                      label: 'รอบถัดไป $nextReminderText',
-                    ),
+          Material(
+            color: Colors.transparent,
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFE9F7FF),
+                    Color(0xFFD8F8FF),
+                    Color(0xFFF4FFD4),
                   ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        key: AppKeys.homeStartProgram,
-                        onPressed: () => onStartPlan(plan),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Text('เริ่มรอบยืดเส้น'),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: onEditPlan,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'แผนหลักของวันนี้',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: AppKeys.homeEditMainPlan,
+                            onPressed: onEditPlan,
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('แก้ไข'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${plan.groups.length} กลุ่ม รวม ${plan.exerciseCount} ท่า',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      key: AppKeys.homeSnoozeReminder,
-                      onPressed: () => appState.snoozeReminder(),
-                      icon: const Icon(Icons.snooze_outlined),
-                      label: const Text('เลื่อน'),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(plan.subtitle, style: theme.textTheme.bodyLarge),
+                      const SizedBox(height: 18),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _StatChip(
+                            icon: Icons.schedule,
+                            label:
+                                'เตือนทุก ${appState.settings.intervalMinutes} นาที',
+                          ),
+                          _StatChip(
+                            icon: Icons.timer_outlined,
+                            label: '$totalMinutes นาทีต่อรอบ',
+                          ),
+                          _StatChip(
+                            icon: Icons.notifications_active_outlined,
+                            label: 'รอบถัดไป $nextReminderText',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              key: AppKeys.homeStartProgram,
+                              onPressed: () => onStartPlan(plan),
+                              icon: const Icon(Icons.play_arrow_rounded),
+                              label: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Text('เริ่มรอบยืดเส้น'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            key: AppKeys.homeSnoozeReminder,
+                            onPressed: () => appState.snoozeReminder(),
+                            icon: const Icon(Icons.snooze_outlined),
+                            label: const Text('เลื่อน'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 18),

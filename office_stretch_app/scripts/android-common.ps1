@@ -176,7 +176,7 @@ function Build-Install-And-LaunchApp {
     param(
         [pscustomobject]$Paths,
         [string]$DeviceId,
-        [string]$ApplicationId = 'com.example.office_stretch_app'
+        [string]$ApplicationId = 'com.lskram.officerelief'
     )
 
     Push-Location $Paths.ProjectRoot

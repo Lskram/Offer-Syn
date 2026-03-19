@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../app/app_keys.dart';
 import '../app/app_state.dart';
 import '../models/app_models.dart';
-import '../widgets/office_relief_mascot.dart';
+import '../widgets/office_relief_complete_state.dart';
 
 class ExerciseSessionScreen extends StatefulWidget {
   const ExerciseSessionScreen({
@@ -279,7 +279,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const OfficeReliefMascot(size: 148),
+                const OfficeReliefCompleteState(size: 148),
                 const SizedBox(height: 16),
                 Text(
                   'ทำครบ $_completedCount ท่า'

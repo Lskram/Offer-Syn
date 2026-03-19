@@ -432,6 +432,37 @@ class _ReminderReadinessCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: const [
+                _PermissionInfoButton(
+                  id: 'notifications',
+                  title: 'สิทธิ์แจ้งเตือน',
+                  body:
+                      'ให้แอปส่งการแจ้งเตือนขึ้นแถบแจ้งเตือน ล็อกสกรีน และหัวแจ้งเตือนลอยได้ ถ้าไม่อนุญาต แอปจะยังคำนวณรอบเตือนได้ แต่จะแสดงแจ้งเตือนไม่ได้',
+                ),
+                _PermissionInfoButton(
+                  id: 'battery',
+                  title: 'Battery optimization',
+                  body:
+                      'ช่วยลดโอกาสที่ Android หรือ ROM ของผู้ผลิตจะหน่วงหรือหยุดการเตือนตอนจอดับ ถ้าตั้งเป็น Unrestricted การเตือนจะเสถียรกว่า โดยเฉพาะ exact alarm และ full-screen',
+                ),
+                _PermissionInfoButton(
+                  id: 'exactAlarm',
+                  title: 'Exact alarm',
+                  body:
+                      'ให้แอปตั้งเวลาเตือนแบบตรงรอบมากขึ้น เช่นทุก 30 หรือ 60 นาที ถ้าไม่ได้สิทธิ์ Android จะ fallback เป็นการเตือนแบบ inexact ซึ่งอาจดีเลย์ได้',
+                ),
+                _PermissionInfoButton(
+                  id: 'fullScreen',
+                  title: 'Full-screen intent',
+                  body:
+                      'ใช้กับโหมด Exact + full-screen เพื่อเปิด alarm flow แบบเด่นชัดขึ้น โดยเฉพาะตอนล็อกหน้าจอ ถ้าไม่ได้สิทธิ์ แอปจะ fallback เป็นการแจ้งเตือน priority สูงแทน',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             _StatusRow(
               label: 'Notification permission',
               value: switch (diagnostics.notificationsEnabled) {
@@ -632,6 +663,58 @@ class _BulletRow extends StatelessWidget {
           const Text('- '),
           Expanded(child: Text(text)),
         ],
+      ),
+    );
+  }
+}
+
+class _PermissionInfoButton extends StatelessWidget {
+  const _PermissionInfoButton({
+    required this.id,
+    required this.title,
+    required this.body,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ActionChip(
+      key: AppKeys.settingsPermissionInfo(id),
+      onPressed: () {
+        showDialog<void>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text(title),
+              content: Text(body),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('ปิด'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+      avatar: CircleAvatar(
+        radius: 10,
+        backgroundColor: theme.colorScheme.primaryContainer,
+        foregroundColor: theme.colorScheme.onPrimaryContainer,
+        child: const Icon(Icons.info_outline, size: 14),
+      ),
+      backgroundColor: theme.colorScheme.surface,
+      side: BorderSide(color: theme.colorScheme.outlineVariant),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      label: Text(
+        title,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

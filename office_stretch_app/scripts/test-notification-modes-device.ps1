@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $workspaceRoot = Split-Path -Parent $projectRoot
 $flutterRoot = Join-Path $workspaceRoot 'flutter'
-$applicationId = 'com.example.office_stretch_app'
+$applicationId = 'com.lskram.officerelief'
 $mainActivity = "$applicationId/.MainActivity"
 
 . (Join-Path $PSScriptRoot 'android-common.ps1')
@@ -97,7 +97,7 @@ function Grant-NotificationPermission {
     param(
         [pscustomobject]$Paths,
         [string]$DeviceId,
-        [string]$PackageName = 'com.example.office_stretch_app'
+        [string]$PackageName = 'com.lskram.officerelief'
     )
 
     try {
@@ -117,7 +117,7 @@ function Get-PostedNotificationCount {
     param(
         [pscustomobject]$Paths,
         [string]$DeviceId,
-        [string]$PackageName = 'com.example.office_stretch_app'
+        [string]$PackageName = 'com.lskram.officerelief'
     )
 
     $dump = (& $Paths.Adb -s $DeviceId shell dumpsys notification --noredact | Out-String)

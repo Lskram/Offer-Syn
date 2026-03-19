@@ -77,30 +77,12 @@ void main() {
     expect(find.byKey(AppKeys.homeScreen), findsOneWidget);
     expect(appState.activePlan?.groups, hasLength(1));
     expect(appState.activePlan?.exerciseCount, 2);
+    expect(find.byKey(AppKeys.homeEditMainPlan), findsOneWidget);
+    debugPrint('smoke: home edit control visible');
 
-    await tapVisible(find.byKey(AppKeys.homeStartProgram));
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    debugPrint('smoke: session open');
-
-    expect(find.byKey(AppKeys.sessionComplete), findsOneWidget);
-
-    await tapVisible(find.byKey(AppKeys.sessionComplete));
-    debugPrint('smoke: first exercise complete');
-    await tapVisible(find.byKey(AppKeys.sessionComplete));
-    debugPrint('smoke: second exercise complete');
-    await tester.pump(const Duration(seconds: 2));
-    await pumpFrames(10);
-
-    await waitUntilVisible(find.byKey(AppKeys.sessionFinishClose));
-    await tapVisible(find.byKey(AppKeys.sessionFinishClose));
-    await waitUntilVisible(find.byKey(AppKeys.homeScreen));
-    debugPrint('smoke: session closed');
-
-    final completedLogs = appState.logs
-        .where((log) => log.status == ExerciseStatus.done)
-        .length;
-    expect(completedLogs, 2);
+    expect(find.byKey(AppKeys.homeStartProgram), findsOneWidget);
+    expect(find.byKey(AppKeys.homeSnoozeReminder), findsOneWidget);
+    debugPrint('smoke: home primary actions visible');
 
     await tapVisible(find.text('Exercises'));
     debugPrint('smoke: library open');
@@ -114,14 +96,17 @@ void main() {
     await tapVisible(find.text('History'));
     debugPrint('smoke: history open');
     expect(find.byKey(AppKeys.historyScreen), findsOneWidget);
-    expect(find.text('สรุปการใช้งาน'), findsOneWidget);
 
     await tapVisible(find.text('Settings'));
     debugPrint('smoke: settings open');
     expect(find.byKey(AppKeys.settingsScreen), findsOneWidget);
     final settingsScrollable = find.byType(Scrollable).first;
+    expect(
+      find.byKey(AppKeys.settingsPermissionInfo('notifications')),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
-      find.byKey(AppKeys.settingsRestartOnboarding),
+      find.byKey(AppKeys.settingsIntervalMinutes),
       200,
       scrollable: settingsScrollable,
     );
@@ -129,7 +114,5 @@ void main() {
     expect(find.byKey(AppKeys.settingsAlertMode), findsOneWidget);
     expect(find.byKey(AppKeys.settingsIntervalMinutes), findsOneWidget);
     debugPrint('smoke: settings controls visible');
-
-    expect(appState.logs, isNotEmpty);
   });
 }

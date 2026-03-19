@@ -6,7 +6,7 @@
 
 - ชื่อแอป: `Office Stretch`
 - เวอร์ชัน: `1.0.0+1`
-- Android package id: `com.example.office_stretch_app`
+- Android package id: `com.lskram.officerelief`
 - ไฟล์ APK สำหรับ tester: `office_stretch_app/artifacts/office-stretch-tester.apk`
 
 หมายเหตุ:

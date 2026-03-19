@@ -1,4 +1,4 @@
-package com.example.office_stretch_app
+package com.lskram.officerelief
 
 import android.app.Activity
 import android.app.Notification

@@ -7,6 +7,7 @@ import 'alarm_screen.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
+import 'plan_editor_screen.dart';
 import 'session_screen.dart';
 import 'settings_screen.dart';
 import 'tips_screen.dart';
@@ -69,7 +70,11 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(appState: widget.appState, onStartPlan: _openPlan),
+      HomeScreen(
+        appState: widget.appState,
+        onStartPlan: _openPlan,
+        onEditPlan: _openPlanEditor,
+      ),
       ExerciseLibraryScreen(
         appState: widget.appState,
         onStartProgram: _openProgram,
@@ -203,5 +208,13 @@ class _HomeShellState extends State<HomeShell> {
 
   void _openProgram(ExerciseProgram program) {
     _openPlan(ExerciseCatalog.buildPlanFromProgram(program));
+  }
+
+  void _openPlanEditor() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlanEditorScreen(appState: widget.appState),
+      ),
+    );
   }
 }
