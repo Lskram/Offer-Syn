@@ -49,6 +49,7 @@ abstract final class AppKeys {
   }
 
   static const tipsScreen = ValueKey<String>('screen.tips');
+  static const historyScreen = ValueKey<String>('screen.history');
 
   static const settingsScreen = ValueKey<String>('screen.settings');
   static const settingsNotificationsEnabled = ValueKey<String>(

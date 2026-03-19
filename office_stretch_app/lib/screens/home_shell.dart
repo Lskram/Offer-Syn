@@ -4,6 +4,7 @@ import '../app/app_state.dart';
 import '../data/exercise_catalog.dart';
 import '../models/app_models.dart';
 import 'alarm_screen.dart';
+import 'history_screen.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
 import 'session_screen.dart';
@@ -70,6 +71,7 @@ class _HomeShellState extends State<HomeShell> {
         onStartProgram: _openProgram,
       ),
       TipsScreen(appState: widget.appState),
+      HistoryScreen(appState: widget.appState),
       SettingsScreen(appState: widget.appState),
     ];
 
@@ -88,6 +90,10 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.tips_and_updates_outlined),
             label: 'Tips',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            label: 'History',
           ),
           NavigationDestination(
             icon: Icon(Icons.tune_outlined),

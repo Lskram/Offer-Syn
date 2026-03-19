@@ -50,6 +50,7 @@ class AppState extends ChangeNotifier {
   ReminderSyncState get reminderSyncState => _reminderSyncState;
   bool get hasValidReminderWindow => ReminderTimeline.hasValidWindow(_settings);
   List<ExerciseLog> get logs => List.unmodifiable(_logs.reversed);
+  DateTime get currentTime => _now();
   Map<PainArea, List<ExerciseProgram>> get programsByArea =>
       ExerciseCatalog.programsByArea;
   List<TipArticle> get tips => ExerciseCatalog.tips;
@@ -81,7 +82,9 @@ class AppState extends ChangeNotifier {
 
     if (persistedData != null) {
       _profile = persistedData.profile;
-      _activePlan = _profile == null ? null : ExerciseCatalog.buildPlan(_profile!);
+      _activePlan = _profile == null
+          ? null
+          : ExerciseCatalog.buildPlan(_profile!);
       _settings = persistedData.settings;
       _logs
         ..clear()
@@ -312,10 +315,7 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
   }
 
-  void snoozePendingReminder(
-    PendingReminderLaunch launch, [
-    int minutes = 10,
-  ]) {
+  void snoozePendingReminder(PendingReminderLaunch launch, [int minutes = 10]) {
     _logReminderAction(
       status: ExerciseStatus.snoozed,
       reminderAt: launch.reminderAt,

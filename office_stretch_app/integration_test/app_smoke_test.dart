@@ -14,10 +14,26 @@ void main() {
   testWidgets('onboarding, navigation, session, and reset flow works', (
     tester,
   ) async {
+    Future<void> pumpFrames([int count = 6]) async {
+      for (var index = 0; index < count; index += 1) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+    }
+
     Future<void> pumpUi() async {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await pumpFrames();
+    }
+
+    Future<void> waitUntilVisible(Finder finder) async {
+      for (var index = 0; index < 40; index += 1) {
+        await tester.pump(const Duration(milliseconds: 200));
+        if (finder.evaluate().isNotEmpty) {
+          return;
+        }
+      }
+      expect(finder, findsOneWidget);
     }
 
     Future<void> tapVisible(Finder finder, {Finder? scrollable}) async {
@@ -62,9 +78,7 @@ void main() {
     expect(appState.activePlan?.groups, hasLength(1));
     expect(appState.activePlan?.exerciseCount, 2);
 
-    await tapVisible(
-      find.byKey(AppKeys.homeStartProgram),
-    );
+    await tapVisible(find.byKey(AppKeys.homeStartProgram));
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
     debugPrint('smoke: session open');
@@ -76,8 +90,9 @@ void main() {
     await tapVisible(find.byKey(AppKeys.sessionComplete));
     debugPrint('smoke: second exercise complete');
 
-    expect(find.byKey(AppKeys.sessionFinishClose), findsOneWidget);
+    await waitUntilVisible(find.byKey(AppKeys.sessionFinishClose));
     await tapVisible(find.byKey(AppKeys.sessionFinishClose));
+    await waitUntilVisible(find.byKey(AppKeys.homeScreen));
     debugPrint('smoke: session closed');
 
     final completedLogs = appState.logs
@@ -93,6 +108,11 @@ void main() {
     await tapVisible(find.text('Tips'));
     debugPrint('smoke: tips open');
     expect(find.byKey(AppKeys.tipsScreen), findsOneWidget);
+
+    await tapVisible(find.text('History'));
+    debugPrint('smoke: history open');
+    expect(find.byKey(AppKeys.historyScreen), findsOneWidget);
+    expect(find.text('สรุปการใช้งาน'), findsOneWidget);
 
     await tapVisible(find.text('Settings'));
     debugPrint('smoke: settings open');
