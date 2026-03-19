@@ -1,28 +1,28 @@
 # OfficeRelief AI Handoff
 
 อัปเดตล่าสุด: 2026-03-19  
-Git HEAD ตอนเขียนเอกสาร: `cd5cf4d`  
-โปรเจกต์: `C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app`
+Git HEAD ตอนเขียนเอกสาร: `bdfe5de`  
+โปรเจ็กต์: `C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app`
 
-## 1. เป้าหมายของเอกสารนี้
+## 1. เป้าหมายของเอกสาร
 
-เอกสารนี้มีไว้ส่งต่อบริบทให้ AI หรือผู้พัฒนาคนถัดไป โดยตั้งใจให้:
+เอกสารนี้มีไว้ส่งต่อบริบทให้ AI หรือผู้พัฒนาคนถัดไป โดยต้องการให้:
 
-- เข้าใจสถานะโปรเจกต์ปัจจุบันจากโค้ดจริง ไม่อิงแค่บทสนทนา
-- รู้ว่าอะไรถูกทำแล้ว อะไรยังไม่ทำ
-- รู้ logic หลักของแอป ทั้งฝั่ง plan, session, reminder, alarm, diagnostics
-- รู้วิธี build และวิธีทดสอบที่พิสูจน์แล้วว่าใช้ได้
-- ลดความเสี่ยงที่ AI ตัวถัดไปจะไปแก้งานผิดจุด หรือย้อนกลับไปใช้ assumption เก่า
+- เข้าใจสถานะโปรเจ็กต์จากโค้ดจริง ไม่อิงแค่บทสนทนา
+- รู้ business rules ปัจจุบันของแอป
+- รู้โครงสร้าง reminder, alarm, notification, diagnostics, และ test harness
+- รู้สิ่งที่ทำแล้ว สิ่งที่ยังไม่ทำ และสิ่งที่ไม่ควรถอยกลับ
+- รู้วิธี build และทดสอบซ้ำบน emulator และมือถือจริง
 
-## 2. ภาพรวมโปรเจกต์
+## 2. ภาพรวมโปรเจ็กต์
 
 ชื่อแอปปัจจุบันคือ `OfficeRelief`
 
 แนวคิดของแอป:
 
-- แอปช่วยเตือนคนทำงานหน้าคอมให้พักและยืดเส้น
+- แอปช่วยเตือนให้คนทำงานหน้าคอมพักและยืดเส้น
 - ใช้แบบสอบถามเพื่อสร้าง `main plan`
-- ทำงานแบบ `local-first`
+- เป็นแอป `local-first`
 - ไม่มี login
 - ไม่มี backend
 - เน้น Android เป็นหลัก
@@ -30,49 +30,57 @@ Git HEAD ตอนเขียนเอกสาร: `cd5cf4d`
 สถานะปัจจุบัน:
 
 - มี onboarding / questionnaire
-- มี `multi-group plan`
+- มี `multi-group main plan`
 - มีหน้าแก้ `main plan`
 - มี exercise session พร้อม timer
 - มี local persistence
 - มี local notifications
 - มี `alert mode` 3 แบบ
-- มี `alarm flow` พร้อม `Alarm screen`
-- มี diagnostics สำหรับ reminder
-- มี real-device verification script สำหรับ notification หลายกรณี
+- มี `Alarm screen`
+- มี reminder diagnostics
+- มี device verification scripts สำหรับ notification และ alarm
 
-## 3. ขอบเขตปัจจุบันของฟีเจอร์
+## 3. ขอบเขตฟีเจอร์ปัจจุบัน
 
-### ฟีเจอร์ที่มีแล้ว
+### 3.1 สิ่งที่มีแล้ว
 
 - เลือกกลุ่มปวดได้มากกว่า 1 กลุ่ม
-- แต่ละกลุ่มกำหนดระดับความปวดของตัวเองได้
+- แต่ละกลุ่มเลือกระดับความปวดของตัวเองได้
 - แต่ละกลุ่มเลือกท่าได้สูงสุด 2 ท่า
-- หน้า Settings มีหน้าแก้ `main plan`
-- ตั้งเวลา active window ได้
-- ตั้ง interval reminder ได้
-- มี notification sound และ vibration toggle
-- มี vibration level 3 ระดับ
-- มี `AlertMode.notification`
-- มี `AlertMode.exact`
-- มี `AlertMode.exactFullScreen`
-- มี `Alarm screen` สำหรับโหมด full-screen
-- มี action บน alarm คือ `start`, `snooze`, `dismiss`
-- มี log สถานะ `done`, `skipped`, `snoozed`, `missed`
-- มี reminder diagnostics และ reminder sync state
+- แก้ `main plan` ได้จากในแอป
+- แก้เวลาเตือน, active window, และ reminder interval ได้
+- เปิด/ปิดเสียงได้
+- เปิด/ปิดการสั่นได้
+- เลือกระดับการสั่นได้ 3 ระดับ
+- มีโหมดแจ้งเตือน:
+  - `notification`
+  - `exact`
+  - `exactFullScreen`
+- มี `Alarm screen` พร้อม action:
+  - `เริ่มทำท่า`
+  - `เลื่อน 10 นาที`
+  - `ปิดรอบนี้`
+- มี history/log ระดับ status:
+  - `done`
+  - `skipped`
+  - `snoozed`
+  - `missed`
+- มี diagnostics ของ reminder และ sync state
 
-### ฟีเจอร์ที่ยังไม่มี
+### 3.2 สิ่งที่ยังไม่มี
 
 - backend / cloud sync
 - login / register
-- release-ready package name
-- Google Play Store deployment
-- module ท่ากลุ่ม `ข้อมือ`
-- module ท่ากลุ่ม `ตา`
-- dedicated history screen แยกเป็นหน้าจริง
+- package name สำหรับ production
+- release signing flow แบบพร้อมปล่อยจริง
+- กลุ่มท่า `ข้อมือ`
+- กลุ่มท่า `ตา`
+- history screen แบบหน้าเฉพาะที่สมบูรณ์
+- native `AlarmActivity` แยกจาก `MainActivity`
 
-## 4. กติกาธุรกิจที่ต้องถือเป็นหลัก
+## 4. Business rules ที่ต้องถือเป็นหลัก
 
-### 4.1 กลุ่มปวดและระดับความปวด
+### 4.1 กลุ่มปวด
 
 มีกลุ่มปวดทั้งหมด 3 กลุ่ม:
 
@@ -80,46 +88,59 @@ Git HEAD ตอนเขียนเอกสาร: `cd5cf4d`
 - `PainArea.upperBack`
 - `PainArea.lowerBack`
 
+### 4.2 ระดับความปวด
+
 แต่ละกลุ่มมี 3 ระดับ:
 
 - `PainLevel.high`
 - `PainLevel.medium`
 - `PainLevel.low`
 
-### 4.2 จำนวนท่าต่อกลุ่ม
+### 4.3 กติกาการเลือกท่า
 
-กติกาปัจจุบัน:
+- ผู้ใช้เลือกกลุ่มปวดได้ `1-3 กลุ่ม`
+- แต่ละกลุ่มมี collection ของท่าตาม `area + level`
+- แต่ละกลุ่มเลือกท่าได้สูงสุด `2 ท่า`
+- ถ้า collection มี `1 ท่า` ให้ใช้ `1`
+- ถ้า collection มี `2 ท่า` ให้ใช้ `2`
+- ถ้า collection มีมากกว่า `2 ท่า` ให้ active จริงได้ไม่เกิน `2` และสลับเลือกได้
 
-- แต่ละกลุ่มเลือกท่าได้สูงสุด 2 ท่า
-- ถ้ามีท่าใน collection แค่ 1 ท่า ให้ใช้ 1 ท่า
-- ถ้ามีท่า 2 ท่า ให้ใช้ 2 ท่า
-- ถ้ามีมากกว่า 2 ท่า ให้ active จริงได้แค่ 2 ท่า และผู้ใช้สลับเลือกได้
+### 4.4 จำนวนท่ารวมของแผน
 
-กติกานี้ถูก implement ใน:
+- เลือก `1 กลุ่ม` ได้ท่ารวมสูงสุด `2`
+- เลือก `2 กลุ่ม` ได้ท่ารวมสูงสุด `4`
+- เลือก `3 กลุ่ม` ได้ท่ารวมสูงสุด `6`
 
-- [exercise_catalog.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\data\exercise_catalog.dart)
-- [plan_editor_form.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\widgets\plan_editor_form.dart)
+จำนวนจริงอาจน้อยกว่านี้ได้ ถ้าบางกลุ่มมีท่าในระดับนั้นไม่ถึง 2
 
-### 4.3 จำนวนท่ารวมตามจำนวนกลุ่มที่เลือก
-
-- ถ้าเลือก 1 กลุ่ม จะได้ท่ารวมสูงสุด 2 ท่า
-- ถ้าเลือก 2 กลุ่ม จะได้ท่ารวมสูงสุด 4 ท่า
-- ถ้าเลือก 3 กลุ่ม จะได้ท่ารวมสูงสุด 6 ท่า
-
-จำนวนจริงอาจน้อยกว่าได้ ถ้าบางกลุ่มมีท่าในระดับนั้นไม่ถึง 2
-
-### 4.4 การคำนวณ reminder interval ของ plan
+### 4.5 Reminder interval ของแผน
 
 `ExercisePlan.reminderIntervalMinutes` ใช้ค่าที่ถี่ที่สุดของทุกกลุ่มที่เลือก
 
 ตัวอย่าง:
 
-- ถ้าเลือก `high + low` จะได้ interval = 30 นาที
-- ถ้าเลือก `medium + low` จะได้ interval = 45 นาที
+- `high + low` -> `30 นาที`
+- `medium + low` -> `45 นาที`
 
-## 5. จำนวนท่าที่มีจริงในข้อมูลตอนนี้
+### 4.6 Edit Main Plan
 
-ข้อมูลมาจาก [exercise_catalog.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\data\exercise_catalog.dart)
+ผู้ใช้แก้แผนหลักได้ตลอดเวลา โดยแก้ได้ทั้งหมด:
+
+- เพิ่ม/ลบกลุ่มปวด
+- เปลี่ยนระดับความปวดรายกลุ่ม
+- เลือก/สลับท่ารายกลุ่ม
+- เปลี่ยน active start
+- เปลี่ยน active end
+- เปลี่ยน reminder interval
+
+เมื่อกด save:
+
+- plan ใหม่ต้องมีผลทันที
+- home / session / reminder ต้อง sync ตามแผนใหม่
+
+## 5. จำนวนท่าจริงในข้อมูลปัจจุบัน
+
+อ้างอิงจาก [exercise_catalog.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\data\exercise_catalog.dart)
 
 ### คอ/บ่า/ไหล่
 
@@ -141,51 +162,44 @@ Git HEAD ตอนเขียนเอกสาร: `cd5cf4d`
 
 สรุป:
 
-- ตอนนี้ยังไม่มี collection ไหนเกิน 3 ท่า
-- ระบบรองรับกรณี `> 2` แล้ว
+- ตอนนี้ collection สูงสุดต่อระดับคือ 3 ท่า
+- logic รองรับกรณี `> 2` แล้ว
 
 ## 6. Data model ปัจจุบัน
 
 ไฟล์หลัก: [app_models.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\models\app_models.dart)
 
-### Model สำคัญ
+โมเดลสำคัญ:
 
-`PainSelection`
-
-- เก็บ `area`
-- เก็บ `level`
-- เก็บ `selectedExerciseIds`
-
-`UserProfile`
-
-- เก็บ `painSelections`
-- เก็บ `workHours`
-- เก็บ `stretchHabit`
-
-`ExercisePlan`
-
-- เก็บ `id`
-- เก็บ `title`
-- เก็บ `subtitle`
-- เก็บ `groups`
-- เก็บ `exercises`
-- เก็บ `reminderIntervalMinutes`
-
-`PendingReminderLaunch`
-
-- ใช้ตอน notification หรือ full-screen alarm เข้ามาเปิดแอป
-- ถือข้อมูล `plan`, `alertMode`, `reminderAt`, `isTest`
-
-`ExerciseStatus`
-
-- `done`
-- `skipped`
-- `snoozed`
-- `missed`
+- `PainSelection`
+  - `area`
+  - `level`
+  - `selectedExerciseIds`
+- `UserProfile`
+  - `painSelections`
+  - `workHours`
+  - `stretchHabit`
+- `ExercisePlan`
+  - `id`
+  - `title`
+  - `subtitle`
+  - `groups`
+  - `exercises`
+  - `reminderIntervalMinutes`
+- `PendingReminderLaunch`
+  - `plan`
+  - `alertMode`
+  - `reminderAt`
+  - `isTest`
+- `ExerciseStatus`
+  - `done`
+  - `skipped`
+  - `snoozed`
+  - `missed`
 
 ## 7. State management และ persistence
 
-ไฟล์แกน: [app_state.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\app\app_state.dart)
+แกนหลักอยู่ที่ [app_state.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\app\app_state.dart)
 
 สิ่งที่ `AppState` ดูแล:
 
@@ -205,223 +219,132 @@ Persistence:
 
 Lifecycle:
 
-- `OfficeStretchApp` ใน [app.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\app\app.dart) ใช้ `WidgetsBindingObserver`
-- เมื่อแอป `resumed` จะเรียก `appState.handleAppResumed()`
-- ใช้สำหรับ reconcile missed reminder และ sync ใหม่
+- [app.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\app\app.dart) ใช้ `WidgetsBindingObserver`
+- ตอนแอป `resumed` จะเรียก `appState.handleAppResumed()`
+- ใช้เพื่อ reconcile reminder state และ refresh diagnostics
 
-## 8. Questionnaire และการแก้ Main Plan
+## 8. Questionnaire และ Edit Main Plan
 
 ### Questionnaire
 
-หน้า onboarding อยู่ที่:
-
-- [questionnaire_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\questionnaire_screen.dart)
-
-แบบฟอร์มจริง reuse จาก:
-
-- [plan_editor_form.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\widgets\plan_editor_form.dart)
+- หน้า onboarding อยู่ที่ [questionnaire_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\questionnaire_screen.dart)
+- ใช้ฟอร์มหลักจาก [plan_editor_form.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\widgets\plan_editor_form.dart)
 
 ### Edit Main Plan
 
-หน้าแก้ plan อยู่ที่:
+- อยู่ที่ [plan_editor_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\plan_editor_screen.dart)
+- เข้าได้จาก Settings
+- save ผ่าน `appState.savePlan(...)`
 
-- [plan_editor_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\plan_editor_screen.dart)
+## 9. Reminder / Notification / Alarm architecture
 
-ตอนนี้หน้า `Edit Main Plan` แก้ได้:
-
-- เพิ่ม/ลบกลุ่มปวด
-- เปลี่ยนระดับความปวดรายกลุ่ม
-- เลือก/สลับท่ารายกลุ่ม
-- เปลี่ยน interval
-- เปลี่ยน active start
-- เปลี่ยน active end
-
-เมื่อกด save:
-
-- เรียก `appState.savePlan(...)`
-- plan ใหม่มีผลทันที
-- reminder ถูก resync
-
-## 9. Home, Session, Alarm flow
-
-### Home
-
-ไฟล์:
-
-- [home_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\home_screen.dart)
-
-แสดง:
-
-- จำนวนกลุ่มใน plan
-- จำนวนท่ารวม
-- interval
-- next reminder
-- summary ของกลุ่มที่เลือก
-- รายการท่าใน plan
-- recent activity log
-- missed reminder card เมื่อมี missed วันนี้
-
-### Session
-
-ไฟล์:
-
-- [session_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\session_screen.dart)
-
-พฤติกรรม:
-
-- รับ `ExercisePlan`
-- รับ `reminderAt` ได้
-- เมื่อทำครบ จะ log เป็น `done`
-- เมื่อมาจาก reminder จะผูก `reminderAt` ลง log ด้วย
-
-### Alarm flow
-
-ไฟล์:
-
-- [alarm_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\alarm_screen.dart)
-- [home_shell.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\home_shell.dart)
-
-กติกา:
-
-- ถ้า notification payload เข้ามาและ `alertMode.prefersFullScreenIntent == true`
-- `HomeShell` จะเปิด `AlarmScreen`
-
-Action บน Alarm screen:
-
-- `start` -> เปิด session ทันที
-- `snooze` -> เรียก `appState.snoozePendingReminder()`
-- `dismiss` -> เรียก `appState.dismissPendingReminder()`
-
-## 10. Reminder / Notification / Alarm system
-
-ไฟล์แกน:
-
-- [reminder_scheduler.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\services\reminder_scheduler.dart)
-- [reminder_timeline.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\services\reminder_timeline.dart)
-- [reminder_sync_state.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\models\reminder_sync_state.dart)
-- [reminder_diagnostics.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\models\reminder_diagnostics.dart)
-
-### Alert modes
+### 9.1 โหมดการแจ้งเตือน
 
 มี 3 โหมด:
 
-- `notification`
-- `exact`
-- `exactFullScreen`
+- `AlertMode.notification`
+- `AlertMode.exact`
+- `AlertMode.exactFullScreen`
 
-Behavior:
+พฤติกรรม:
 
-- `notification` = notification ปกติ ไม่ขอ exact alarm
-- `exact` = ขอ exact alarm ถ้าเครื่องอนุญาต
-- `exactFullScreen` = ขอ exact alarm + ขอ full-screen intent ถ้าเครื่องอนุญาต
+- `notification` -> notification ปกติ
+- `exact` -> exact scheduling ถ้าสิทธิ์พร้อม ไม่พร้อมก็ fallback
+- `exactFullScreen` -> ขอ full-screen intent ถ้าระบบอนุญาต ไม่พร้อมก็ fallback
 
-Fallback:
+### 9.2 Scheduler
 
-- ถ้า exact ใช้ไม่ได้ จะ fallback ไป inexact
-- ถ้า full-screen ใช้ไม่ได้ จะ fallback ไป high-priority notification
+ไฟล์หลัก: [reminder_scheduler.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\services\reminder_scheduler.dart)
 
-### Schedule mode จริง
+สิ่งที่ scheduler ทำ:
 
-การ schedule ใช้:
+- สร้าง notification details ตาม mode
+- ใช้ exact / inexact ตาม capability จริง
+- ส่ง payload ที่มี `alertMode` และ `reminderAt`
+- บันทึก sync state และ diagnostics
 
-- `AndroidScheduleMode.exactAllowWhileIdle` เมื่อ exact ใช้ได้
-- `AndroidScheduleMode.inexactAllowWhileIdle` เมื่อ exact ใช้ไม่ได้
+หมายเหตุสำคัญ:
 
-### Active window
+- มีการอุด bug ที่เคย schedule เวลาซึ่ง `<= now` แล้ว plugin ปฏิเสธ
+- ตอนนี้ scheduler จะ normalize ให้เวลาเริ่มอยู่ในอนาคตเสมอ
 
-ระบบรองรับ:
+### 9.3 Alarm flow
 
-- กะปกติ เช่น `08:00 -> 16:30`
-- กะข้ามวัน เช่น `18:00 -> 02:00`
+หน้าหลัก: [alarm_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\alarm_screen.dart)
 
-เงื่อนไข invalid:
+action:
 
-- `start == end`
+- `เริ่มทำท่า` -> เข้า session
+- `เลื่อน 10 นาที` -> `snoozed`
+- `ปิดรอบนี้` -> `skipped`
 
-### Missed reminder inference
+Routing:
 
-จุดสำคัญ:
+- เข้าแอปผ่าน payload
+- `HomeShell` ตัดสินใจว่าจะเปิด session หรือ alarm screen
 
-- ระบบจะไม่ลง `missed` จากเวลาล้วน ๆ อีกแล้ว
-- จะเชื่อเฉพาะรอบที่มีหลักฐานจาก `ReminderSyncState` ว่าถูก schedule สำเร็จจริง
+### 9.4 Full-screen behavior ปัจจุบัน
 
-เงื่อนไขที่ใช้:
+ไฟล์หลัก:
 
-- permission ตอน sync ต้องพร้อม
-- `pendingRequestCount > 0`
-- `scheduledReminders` ต้องไม่ว่าง
-- `lastError == null`
-
-## 11. Diagnostics ที่มีในแอป
-
-หน้า Settings อยู่ที่:
-
-- [settings_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\settings_screen.dart)
-
-ตอนนี้ diagnostics แสดงอย่างน้อย:
-
-- notification permission
-- battery optimization state
-- exact alarm state
-- full-screen intent state
-- schedule mode ที่ใช้อยู่
-- pending request count
-- confirmed reminders
-- next scheduled reminder
-- last sync
-- error ล่าสุดถ้ามี
-
-Action ในหน้า Settings ที่มี:
-
-- ขอ notification permission
-- ขอ exact alarm permission
-- เปิดหน้า system notification settings
-- เปิด battery settings
-- เปิด full-screen intent settings
-- test notification ทันที
-- resync reminders ทันที
-
-## 12. Android-specific implementation
-
-ไฟล์ Android สำคัญ:
-
-- [MainActivity.kt](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\android\app\src\main\kotlin\com\example\office_stretch_app\MainActivity.kt)
 - [AndroidManifest.xml](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\android\app\src\main\AndroidManifest.xml)
+- [MainActivity.kt](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\android\app\src\main\kotlin\com\example\office_stretch_app\MainActivity.kt)
 
-สิ่งที่ `MainActivity.kt` ทำ:
+สิ่งที่เปิดใช้งานแล้ว:
 
-- bridge notification/system settings ผ่าน `MethodChannel`
-- bridge automation command สำหรับ device verification
-- รับ launch intent extras เพื่อเตรียม automation mode
+- `showWhenLocked`
+- `turnScreenOn`
+- runtime behavior สำหรับ lock-screen path
 
-ข้อเท็จจริงสำคัญ:
+ข้อจำกัด:
 
-- package name ตอนนี้ยังเป็น `com.example.office_stretch_app`
-- ถ้าจะทำ release จริง ควรเปลี่ยน package name
+- ตอนนี้ยังไม่มี native `AlarmActivity`
+- full-screen path ยังผ่าน `MainActivity` แล้วค่อยเข้า Flutter route
+- ถ้าต้องการให้ใกล้ alarm app ของระบบมากขึ้น งานถัดไปคือเพิ่ม `AlarmActivity` แยก
 
-## 13. Branding และ asset
+## 10. Reminder diagnostics และ missed logic
 
-แบรนด์ปัจจุบัน:
+สิ่งสำคัญ:
 
-- ชื่อแอป `OfficeRelief`
-- มีโลโก้, mascot, missed-state image แล้ว
+- อย่าใช้ `missed` เป็นหลักฐานว่า notification ถูกส่งจริง
+- ตอนนี้แอปแยก `schedule proof` ออกจาก `delivery proof` มากขึ้นแล้ว
+- การพิสูจน์ delivery จริงบนมือถือ ใช้ `adb/dumpsys` harness
 
-Asset หลัก:
+หน้า diagnostics อยู่ใน [settings_screen.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\screens\settings_screen.dart)
 
-- [office_relief_in_app_logo.png](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\assets\branding\office_relief_in_app_logo.png)
-- [office_relief_mascot.png](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\assets\branding\office_relief_mascot.png)
-- [office_relief_missed_state.png](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\assets\branding\office_relief_missed_state.png)
+ข้อมูลที่ใช้:
 
-Android icon assets ที่มีแล้ว:
+- `ReminderDiagnostics`
+- `ReminderSyncState`
 
-- adaptive icon foreground
-- adaptive icon background
-- launcher icon
-- notification small icon `ic_stat_office_relief`
+## 11. Branding และ assets
 
-## 14. Stack และ dependency สำคัญ
+สิ่งที่เปลี่ยนแล้ว:
 
-จาก [pubspec.yaml](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\pubspec.yaml)
+- ชื่อแอปเป็น `OfficeRelief`
+- adaptive icon foreground/background มีแล้ว
+- notification small icon มีแล้ว
+- in-app brand image มีแล้ว
+- mascot และ missed-state image มีแล้ว
+
+สิ่งที่ยังไม่ finalize:
+
+- package name ยังเป็น `com.example.office_stretch_app`
+
+## 12. Android และ package
+
+package ปัจจุบัน:
+
+- `com.example.office_stretch_app`
+
+ข้อควรระวัง:
+
+- scripts และ adb harness หลายตัวผูกกับ package นี้
+- ถ้าจะเปลี่ยน package name ต้องแก้ scripts, install path, และ test harness ให้ครบก่อน
+
+## 13. Stack และ dependency สำคัญ
+
+อ้างอิงจาก [pubspec.yaml](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\pubspec.yaml)
 
 - Flutter
 - `shared_preferences`
@@ -434,13 +357,13 @@ Android icon assets ที่มีแล้ว:
 สถาปัตยกรรมโดยรวม:
 
 - state หลักรวมอยู่ใน `AppState`
-- business logic กระจายที่ `ExerciseCatalog`, `ReminderTimeline`, `ReminderScheduler`
+- business logic หลักอยู่ใน `ExerciseCatalog`, `ReminderTimeline`, `ReminderScheduler`
 - persistence เป็น local snapshot
-- ไม่มี backend integration
+- ไม่มี backend
 
-## 15. วิธี build และ script สำคัญ
+## 14. วิธี build และ scripts สำคัญ
 
-### Build release APK สำหรับ tester
+### Build release APK
 
 - [build-tester-apk.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\build-tester-apk.ps1)
 
@@ -460,11 +383,17 @@ Android icon assets ที่มีแล้ว:
 
 - [verify-local.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\verify-local.ps1)
 
-## 16. การทดสอบที่มีอยู่
+### Device verification scripts
+
+- [test-notification-modes-device.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-notification-modes-device.ps1)
+- [test-full-screen-screen-states.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-full-screen-screen-states.ps1)
+- [test-scheduled-notifications-device.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-scheduled-notifications-device.ps1)
+
+## 15. การทดสอบที่มีอยู่
 
 ### Unit / widget tests
 
-ไฟล์สำคัญ:
+ไฟล์หลัก:
 
 - [exercise_plan_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\test\exercise_plan_test.dart)
 - [app_state_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\test\app_state_test.dart)
@@ -472,109 +401,120 @@ Android icon assets ที่มีแล้ว:
 - [reminder_settings_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\test\reminder_settings_test.dart)
 - [reminder_timeline_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\test\reminder_timeline_test.dart)
 
-สิ่งที่ถูกคุมด้วย test:
+ครอบคลุม:
 
 - max 2 exercises ต่อกลุ่ม
-- แผนรวมหลายกลุ่ม
-- normalize selection
+- multi-group plan
 - reminder timeline และ overnight window
 - alarm routing ใน `HomeShell`
-- reminder setting serialization
-- missed reminder logic บางส่วน
+- reminder settings serialization
+- reminder / missed logic บางส่วน
 
 ### Integration / device tests
 
-ไฟล์สำคัญ:
+ไฟล์หลัก:
 
 - [app_smoke_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\integration_test\app_smoke_test.dart)
 - [notification_modes_device_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\integration_test\notification_modes_device_test.dart)
 - [full_screen_screen_states_device_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\integration_test\full_screen_screen_states_device_test.dart)
 - [alarm_flow_device_test.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\integration_test\alarm_flow_device_test.dart)
 
-Script สำคัญ:
+## 16. สิ่งที่พิสูจน์แล้วบนเครื่องจริง
 
-- [test-notification-modes-device.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-notification-modes-device.ps1)
-- [test-full-screen-screen-states.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-full-screen-screen-states.ps1)
-- [test-scheduled-notifications-device.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-scheduled-notifications-device.ps1)
+อุปกรณ์ที่ใช้ทดสอบจริง:
 
-## 17. สิ่งที่พิสูจน์แล้วบนเครื่องจริง
-
-อุปกรณ์ที่ทดสอบจริง:
-
-- Android device `f4da450d`
-- ผู้ใช้ใช้งานจริงบนเครื่อง `RMX3491`
+- device id: `f4da450d`
+- model: `RMX3491`
 
 สิ่งที่พิสูจน์แล้ว:
 
-- immediate notification ทุกโหมดใช้งานได้
-- exact mode ใช้งานได้
-- exact + full-screen ใช้งานได้ในระดับ notification object และ alarm flow
-- full-screen screen state test ผ่านทั้งกรณี screen on และ screen off
-- `Alarm screen` action flow ทำงาน
-- scheduled notification ถูกพิสูจน์ด้วย `adb/dumpsys` harness แล้ว
+- immediate notification ใช้งานได้ทุกโหมด
+- `exact` ใช้งานได้
+- `exactFullScreen` ใช้งานได้ในระดับ notification object และ alarm flow
+- full-screen screen-state test ผ่านทั้งกรณี screen on และ screen off
+- `Alarm screen` action flow ทำงานจริง
+- scheduled notification พิสูจน์ด้วย `adb/dumpsys` ได้แล้ว
 
-แนวทางพิสูจน์ scheduled path ปัจจุบัน:
+### ผลทดสอบสำคัญล่าสุด: screen-off + 1-minute scheduled reminder
 
-- ไม่ใช้ `integration_test` เป็นตัวถือ alarm ค้างอีกต่อไป
-- ใช้ installed-app automation ผ่าน [device_automation.dart](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\lib\services\device_automation.dart)
-- แล้ว verify จาก `adb shell dumpsys notification --noredact`
+รันเมื่อวันที่ `2026-03-19` ด้วย [test-scheduled-notifications-device.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-scheduled-notifications-device.ps1) แบบ `-ScreenOff`
 
-เหตุผล:
+ผล:
 
-- integration runner เคย force-stop / cleanup app หลังจบ test
-- ทำให้ Android ล้าง alarm และทำให้ผล scheduled path ไม่น่าเชื่อถือ
+- `notification`
+  - `baseline=0`
+  - `final=1`
+  - `delta=1`
+  - `screenOff=True`
+  - `interactive=False`
+- `exact`
+  - `baseline=1`
+  - `final=2`
+  - `delta=1`
+  - `screenOff=True`
+  - `interactive=False`
+- `exactFullScreen`
+  - `baseline=2`
+  - `final=3`
+  - `delta=1`
+  - `screenOff=True`
+  - `interactive=False`
 
-## 18. Known caveats ที่ AI ถัดไปต้องรู้
+ข้อสรุป:
 
-### สำคัญมาก
+- ตอนหน้าจอดับจริง ระบบโพสต์แจ้งเตือนขึ้นได้ครบทั้ง 3 โหมดในรอบ 1 นาที
+- harness ใช้ `dumpsys notification` เพื่อพิสูจน์ `numPostedByApp` โดยไม่พึ่ง inference จาก `missed`
 
-- อย่าใช้ `missed` log เป็นหลักฐานว่า notification ถูกส่งจริง
-- ถ้าจะพิสูจน์ delivery จริง ให้ใช้ diagnostics, pending requests, และ `adb/dumpsys` verification
+หมายเหตุ:
 
-### Full-screen caveat
+- บน ROM นี้ `dumpsys power` ไม่คืน `display state` ในรูปแบบที่คงที่เสมอ จึงใช้ `interactive=False` เป็นตัวชี้หลักของสถานะจอดับ
+
+## 17. Known caveats
+
+### 17.1 Full-screen caveat
 
 - `exactFullScreen` ไม่ได้แปลว่า takeover เต็มจอ 100% ทุกสถานการณ์
 - Android/ROM อาจ fallback เป็น heads-up notification
 - โดยเฉพาะตอนหน้าจอเปิดอยู่
 
-### Exact alarm caveat
+### 17.2 Exact alarm caveat
 
 - exact alarm ยังขึ้นกับ permission และ device policy
-- ถ้า permission ไม่พร้อม ระบบจะ fallback เป็น inexact
+- ถ้า permission ไม่พร้อม ระบบจะ fallback
 
-### Product caveat
+### 17.3 Current architecture caveat
+
+- ตอนนี้ยังไม่มี native `AlarmActivity`
+- full-screen path ยังวิ่งผ่าน `MainActivity`
+- ถ้าต้องการลดความรู้สึกช้า/หน่วงจาก heads-up -> full-screen งานถัดไปที่ถูกที่สุดคือเพิ่ม `AlarmActivity`
+
+### 17.4 Product caveat
 
 - แอปยังไม่ใช่ production release
 - package name ยังไม่ final
-- ไม่มี release signing flow ที่ปิดงานแล้ว
+- ยังไม่มี release signing flow ที่ปิดงานจริง
 
-## 19. สิ่งที่ไม่ควรถูกทำโดย AI ถัดไปแบบไม่คิด
+## 18. สิ่งที่ AI ถัดไปไม่ควรถอยกลับ
 
-- อย่ารื้อ reminder flow กลับไปใช้ `single program`
-- อย่าลด `multi-group plan` กลับไปเหลือ `painArea เดียว`
-- อย่าลบ `ReminderSyncState` หรือ `scheduledReminders` ถ้ายังไม่แทนด้วยกลไกที่พิสูจน์ schedule ได้จริง
-- อย่าพึ่งพา `integration_test` อย่างเดียวสำหรับ scheduled notification บน device จริง
-- อย่าเปลี่ยน package name ระหว่างที่ยังต้องทดสอบบนเครื่องผู้ใช้ โดยไม่จัดการ install path และ scripts ให้ครบ
+- อย่ารื้อ `multi-group plan` กลับไปเป็น `single program`
+- อย่าลบ `ReminderSyncState` หรือ device harness โดยไม่มีตัวแทนที่พิสูจน์ scheduled delivery ได้จริง
+- อย่ากลับไปใช้ `missed` เป็นหลักฐานแทนการส่ง notification จริง
+- อย่าพึ่ง `integration_test` อย่างเดียวสำหรับ scheduled notification บนเครื่องจริง
+- อย่าเปลี่ยน package name โดยไม่ไล่แก้ scripts และ adb harness ทั้งชุด
 
-## 20. งานถัดไปที่แนะนำ
+## 19. งานถัดไปที่แนะนำ
 
 ลำดับที่คุ้มที่สุด:
 
 1. ทำ `History screen` เป็นหน้าจริง
 2. เปลี่ยน package name ให้เป็นของจริง
 3. เตรียม release signing / versioning
-4. เพิ่ม wrist/eye modules ก็ต่อเมื่อมี source content ที่ชัด
+4. ถ้าจะดัน alarm UX ต่อ:
+   - เพิ่ม native `AlarmActivity`
+   - แยก full-screen entry point ออกจาก `MainActivity`
+5. เพิ่ม wrist/eye modules เมื่อมี content จริง
 
-ถ้าจะขยาย alarm flow ต่อ:
-
-- เพิ่ม dedicated alarm analytics / diagnostics ใน UI
-- เพิ่ม action button บน notification ถ้าต้องการ
-
-ถ้าจะขยาย data model ต่อ:
-
-- รักษากติกา `1-3 groups`, `max 2 exercises per group`
-
-## 21. แผนที่ไฟล์สำคัญ
+## 20. แผนที่ไฟล์สำคัญ
 
 Core app:
 
@@ -628,19 +568,22 @@ Scripts:
 - [test-full-screen-screen-states.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-full-screen-screen-states.ps1)
 - [test-scheduled-notifications-device.ps1](C:\Users\UsEr\OneDrive\Documents\Playground\office_stretch_app\scripts\test-scheduled-notifications-device.ps1)
 
-## 22. สรุปสุดท้ายแบบสั้น
+## 21. สรุปสั้น
 
-โปรเจกต์นี้ไม่ใช่แค่ MVP แบบถามตอบแล้วเปิดหน้าท่าเดี่ยวอีกต่อไป แต่ตอนนี้เป็นแอป local-first ที่มี:
+สถานะปัจจุบันของโปรเจ็กต์:
 
-- `multi-group main plan`
-- `editable plan`
-- `reminder diagnostics`
-- `alarm flow`
-- `real-device notification verification`
+- ไม่ใช่แค่ MVP แบบ single plan แล้ว
+- เป็น local-first app ที่มี:
+  - `multi-group plan`
+  - `editable main plan`
+  - `alert modes`
+  - `alarm flow`
+  - `diagnostics`
+  - `real-device verification harness`
 
-ถ้าจะส่งต่องานให้ AI ตัวถัดไป จุดที่สำคัญที่สุดคือ:
+จุดที่สำคัญที่สุดสำหรับ AI ถัดไป:
 
 - รักษา architecture ปัจจุบันไว้
-- อย่าถอย logic กลับไปแบบ single program
-- ใช้ diagnostics และ device harness เมื่อแตะ notification
+- อย่าถอย logic กลับเป็น single program
+- ใช้ `adb/dumpsys` เมื่อพิสูจน์ scheduled reminder บนเครื่องจริง
 - แยก `schedule proof` ออกจาก `delivery proof` เสมอ
