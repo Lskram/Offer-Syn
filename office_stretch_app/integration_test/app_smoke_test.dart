@@ -26,16 +26,6 @@ void main() {
       await pumpFrames();
     }
 
-    Future<void> waitUntilVisible(Finder finder) async {
-      for (var index = 0; index < 80; index += 1) {
-        await tester.pump(const Duration(milliseconds: 200));
-        if (finder.evaluate().isNotEmpty) {
-          return;
-        }
-      }
-      expect(finder, findsOneWidget);
-    }
-
     Future<void> tapVisible(Finder finder, {Finder? scrollable}) async {
       if (scrollable != null) {
         await tester.scrollUntilVisible(finder, 200, scrollable: scrollable);

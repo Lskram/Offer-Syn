@@ -67,6 +67,7 @@ flutter:
     - assets/branding/office_relief_mascot.png
     - assets/branding/office_relief_missed_state.png
     - assets/branding/office_relief_complete_state.png
+    - assets/exercises/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

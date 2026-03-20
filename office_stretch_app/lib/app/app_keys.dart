@@ -5,6 +5,8 @@ import '../models/app_models.dart';
 abstract final class AppKeys {
   static const questionnaireScreen = ValueKey<String>('screen.questionnaire');
   static const questionnaireSubmit = ValueKey<String>('questionnaire.submit');
+  static const scheduleActiveStart = ValueKey<String>('schedule.activeStart');
+  static const scheduleActiveEnd = ValueKey<String>('schedule.activeEnd');
 
   static ValueKey<String> painAreaOption(PainArea value) {
     return ValueKey<String>('questionnaire.painArea.${value.name}');
@@ -47,6 +49,10 @@ abstract final class AppKeys {
 
   static ValueKey<String> libraryStartProgram(String programId) {
     return ValueKey<String>('library.startProgram.$programId');
+  }
+
+  static ValueKey<String> libraryExercisePreview(String exerciseId) {
+    return ValueKey<String>('library.exercisePreview.$exerciseId');
   }
 
   static const tipsScreen = ValueKey<String>('screen.tips');

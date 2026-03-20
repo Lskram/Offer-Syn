@@ -325,6 +325,7 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
           ),
           const SizedBox(height: 12),
           ListTile(
+            key: AppKeys.scheduleActiveStart,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.schedule_outlined),
             title: const Text('เริ่มเตือนตั้งแต่'),
@@ -334,6 +335,7 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
             }),
           ),
           ListTile(
+            key: AppKeys.scheduleActiveEnd,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.nightlight_outlined),
             title: const Text('หยุดเตือนเวลา'),

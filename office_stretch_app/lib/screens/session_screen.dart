@@ -58,159 +58,145 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
       key: AppKeys.sessionScreen,
       appBar: AppBar(title: Text(widget.plan.title)),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'ท่า ${_exerciseIndex + 1} / ${widget.plan.exercises.length}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                exercise.name,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(exercise.description, style: theme.textTheme.bodyLarge),
-              const SizedBox(height: 10),
-              Text(
-                '${entry.area.label} | ${entry.level.label}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'เหตุผล: ${exercise.reason}',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final dialSize = constraints.maxHeight < 280
-                            ? 132.0
-                            : constraints.maxHeight < 340
-                            ? 152.0
-                            : 180.0;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compactLayout = constraints.maxHeight < 580;
+            final bodyPadding = compactLayout ? 16.0 : 20.0;
+            final headerGap = compactLayout ? 6.0 : 8.0;
+            final blockGap = compactLayout ? 10.0 : 12.0;
+            final actionPadding = compactLayout ? 10.0 : 12.0;
 
-                        return SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  height: dialSize,
-                                  width: dialSize,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      CircularProgressIndicator(
-                                        value: progress.clamp(0, 1),
-                                        strokeWidth: 12,
-                                      ),
-                                      Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            _formatSeconds(_remainingSeconds),
-                                            style: theme.textTheme.displaySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            exercise.requiresStanding
-                                                ? 'แนะนำให้ลุกขึ้นทำ'
-                                                : 'ทำได้ขณะนั่ง',
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                LinearProgressIndicator(
-                                  value: progress.clamp(0, 1),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'เมื่อครบเวลา ระบบจะเลื่อนไปท่าถัดไปให้อัตโนมัติ',
-                                  style: theme.textTheme.bodyMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+            return Padding(
+              padding: EdgeInsets.all(bodyPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ท่า ${_exerciseIndex + 1} / ${widget.plan.exercises.length}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
+                  SizedBox(height: headerGap),
+                  Text(
+                    exercise.name,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(exercise.description, style: theme.textTheme.bodyLarge),
+                  SizedBox(height: blockGap),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    child: _ExerciseVisualCard(
+                      key: ValueKey<String>(exercise.id),
+                      entry: entry,
+                      compact: compactLayout,
+                    ),
+                  ),
+                  SizedBox(height: blockGap),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      key: AppKeys.sessionSkip,
-                      onPressed: _isTransitioning
-                          ? null
-                          : () => _advance(ExerciseStatus.skipped),
-                      icon: const Icon(Icons.fast_forward_outlined),
-                      label: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('ข้ามท่านี้'),
+                    child: Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(compactLayout ? 20 : 24),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    _SessionCountdownHero(
+                                      remainingSeconds: _remainingSeconds,
+                                      totalSeconds: exercise.durationSeconds,
+                                      requiresStanding:
+                                          exercise.requiresStanding,
+                                      compact: compactLayout,
+                                    ),
+                                    SizedBox(height: compactLayout ? 16 : 20),
+                                    _LiquidProgressTube(
+                                      progress: progress.clamp(0, 1),
+                                      compact: compactLayout,
+                                      totalSeconds: exercise.durationSeconds,
+                                      remainingSeconds: _remainingSeconds,
+                                    ),
+                                    SizedBox(height: compactLayout ? 10 : 12),
+                                    _AnimatedReminderHint(
+                                      hint:
+                                          'เมื่อครบเวลา ระบบจะเลื่อนไปท่าถัดไปให้อัตโนมัติ',
+                                      animationKey: exercise.id,
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: AppKeys.sessionSnooze,
+                  SizedBox(height: compactLayout ? 16 : 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: AppKeys.sessionSkip,
+                          onPressed: _isTransitioning
+                              ? null
+                              : () => _advance(ExerciseStatus.skipped),
+                          icon: const Icon(Icons.fast_forward_outlined),
+                          label: Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: actionPadding,
+                            ),
+                            child: const Text('ข้ามท่านี้'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: AppKeys.sessionSnooze,
+                          onPressed: _isTransitioning
+                              ? null
+                              : () => _advance(ExerciseStatus.snoozed),
+                          icon: const Icon(Icons.snooze_outlined),
+                          label: Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: actionPadding,
+                            ),
+                            child: const Text('เลื่อน 10 นาที'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: blockGap),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      key: AppKeys.sessionComplete,
                       onPressed: _isTransitioning
                           ? null
-                          : () => _advance(ExerciseStatus.snoozed),
-                      icon: const Icon(Icons.snooze_outlined),
-                      label: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('เลื่อน 10 นาที'),
+                          : () => _advance(ExerciseStatus.done),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: compactLayout ? 12 : 14,
+                        ),
+                        child: const Text('ทำครบและไปท่าถัดไป'),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  key: AppKeys.sessionComplete,
-                  onPressed: _isTransitioning
-                      ? null
-                      : () => _advance(ExerciseStatus.done),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Text('ทำครบและไปท่าถัดไป'),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -311,11 +297,465 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
     _beginCurrentExercise();
   }
 
-  String _formatSeconds(int totalSeconds) {
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
+}
+
+class _SessionCountdownHero extends StatelessWidget {
+  const _SessionCountdownHero({
+    required this.remainingSeconds,
+    required this.totalSeconds,
+    required this.requiresStanding,
+    required this.compact,
+  });
+
+  final int remainingSeconds;
+  final int totalSeconds;
+  final bool requiresStanding;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final minutes = remainingSeconds ~/ 60;
+    final seconds = remainingSeconds % 60;
     final minutePart = minutes.toString().padLeft(2, '0');
     final secondPart = seconds.toString().padLeft(2, '0');
-    return '$minutePart:$secondPart';
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 16 : 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hourglass_top_rounded,
+                color: const Color(0xFF1A6E46),
+                size: compact ? 18 : 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'เวลาของท่านี้',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF18472D),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$totalSeconds วินาที',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF32634A),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 14 : 18),
+          Text(
+            '$minutePart:$secondPart',
+            style: theme.textTheme.displaySmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF123621),
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            requiresStanding ? 'แนะนำให้ลุกขึ้นทำ' : 'ทำได้ขณะนั่ง',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF32634A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseVisualCard extends StatelessWidget {
+  const _ExerciseVisualCard({
+    super.key,
+    required this.entry,
+    required this.compact,
+  });
+
+  final PlannedExercise entry;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final exercise = entry.exercise;
+    final stanceLabel = exercise.requiresStanding ? 'ควรยืนทำ' : 'ทำขณะนั่งได้';
+    final imageHeight = compact ? 84.0 : 108.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (exercise.imageAssetPath != null)
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.45,
+                ),
+              ),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 12,
+                vertical: compact ? 8 : 10,
+              ),
+              child: SizedBox(
+                height: imageHeight,
+                child: Image.asset(
+                  exercise.imageAssetPath!,
+                  fit: BoxFit.contain,
+                  semanticLabel: exercise.name,
+                ),
+              ),
+            ),
+          if (exercise.imageAssetPath != null) SizedBox(height: compact ? 8 : 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.self_improvement_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'โฟกัสของท่านี้',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      exercise.reason,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 8 : 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoPill(
+                icon: Icons.accessibility_new_outlined,
+                label: entry.area.label,
+              ),
+              _InfoPill(
+                icon: Icons.local_fire_department_outlined,
+                label: entry.level.label,
+              ),
+              _InfoPill(
+                icon: exercise.requiresStanding
+                    ? Icons.stairs_outlined
+                    : Icons.event_seat_outlined,
+                label: stanceLabel,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiquidProgressTube extends StatelessWidget {
+  const _LiquidProgressTube({
+    required this.progress,
+    required this.compact,
+    required this.totalSeconds,
+    required this.remainingSeconds,
+  });
+
+  final double progress;
+  final bool compact;
+  final int totalSeconds;
+  final int remainingSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedProgress = progress.clamp(0.0, 1.0);
+    final tubeHeight = compact ? 38.0 : 46.0;
+    final theme = Theme.of(context);
+    final elapsedSeconds = (totalSeconds - remainingSeconds).clamp(
+      0,
+      totalSeconds,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.hourglass_bottom_outlined,
+              size: compact ? 16 : 18,
+              color: const Color(0xFF1A6E46),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'นาฬิกาทรายของท่านี้',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1A6E46),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '$elapsedSeconds / $totalSeconds วินาที',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF32634A),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final fillWidth = constraints.maxWidth * clampedProgress;
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  height: tubeHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: const Color(0xFFEAF4EC),
+                    border: Border.all(
+                      color: const Color(0xFFD5E8DA),
+                      width: 1.2,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withValues(alpha: 0.92),
+                                const Color(0xFFF4F8F4),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ),
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 700),
+                        curve: Curves.easeInOutCubic,
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: fillWidth,
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Color(0xFFB9F489),
+                                Color(0xFF57D877),
+                                Color(0xFF1EA45F),
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.44),
+                                  Colors.white.withValues(alpha: 0.12),
+                                  Colors.transparent,
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  height: compact ? 24 : 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: Colors.white.withValues(alpha: 0.92),
+                    border: Border.all(color: const Color(0xFFD5E8DA)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.hourglass_empty_rounded,
+                        size: 15,
+                        color: Color(0xFF1A6E46),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${(clampedProgress * 100).round()}%',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF18472D),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Text(
+              'เริ่มท่า',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'ครบเวลา',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AnimatedReminderHint extends StatelessWidget {
+  const _AnimatedReminderHint({
+    required this.hint,
+    required this.animationKey,
+    this.style,
+  });
+
+  final String hint;
+  final String animationKey;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 420),
+      switchInCurve: Curves.easeOutCubic,
+      transitionBuilder: (child, animation) {
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(0, 0.2),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        hint,
+        key: ValueKey<String>(animationKey),
+        style: style,
+        textAlign: TextAlign.center,
+      ),
+    );
   }
 }

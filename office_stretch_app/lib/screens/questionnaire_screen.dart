@@ -20,6 +20,7 @@ class QuestionnaireScreen extends StatelessWidget {
       body: SafeArea(
         child: PlanEditorForm(
           initialSettings: appState.settings,
+          includeScheduleSection: true,
           submitLabel: 'สร้างแผนแนะนำ',
           submitKey: AppKeys.questionnaireSubmit,
           topSection: Container(
@@ -52,7 +53,7 @@ class QuestionnaireScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'เลือกได้หลายกลุ่มปวด ตั้งระดับแต่ละกลุ่ม และ OfficeRelief จะจัดแผนรวมให้พร้อมใช้งานทันที',
+                  'เลือกกลุ่มอาการ ตั้งช่วงเวลาทำงาน และ OfficeRelief จะจัดแผนรวมให้พร้อมใช้งานทันที',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.94),
                   ),
@@ -61,7 +62,12 @@ class QuestionnaireScreen extends StatelessWidget {
             ),
           ),
           onSubmit: (result) async {
-            appState.completeQuestionnaire(result.profile);
+            appState.savePlan(
+              profile: result.profile,
+              intervalMinutes: result.intervalMinutes,
+              activeStart: result.activeStart,
+              activeEnd: result.activeEnd,
+            );
           },
         ),
       ),

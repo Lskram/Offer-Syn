@@ -284,6 +284,7 @@ class Exercise {
     required this.reason,
     required this.durationSeconds,
     this.requiresStanding = false,
+    this.imageAssetPath,
   });
 
   final String id;
@@ -292,6 +293,7 @@ class Exercise {
   final String reason;
   final int durationSeconds;
   final bool requiresStanding;
+  final String? imageAssetPath;
 }
 
 class ExerciseProgram {
