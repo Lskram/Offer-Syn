@@ -58,15 +58,60 @@ class ReminderSyncState {
 
   bool get canTrustMissedInference =>
       lastError == null &&
+      queueHealthy &&
       notificationsPermissionAtSync == true &&
       pendingRequestCount > 0 &&
       scheduledReminders.isNotEmpty;
+
+  bool get expectsScheduledReminders => requestedReminderCount > 0;
+
+  bool get queueHealthy =>
+      !expectsScheduledReminders ||
+      (pendingRequestCount > 0 &&
+          scheduledReminders.isNotEmpty &&
+          nextReminderAt != null);
+
+  bool get needsRepair =>
+      expectsScheduledReminders &&
+      notificationsPermissionAtSync != false &&
+      !queueHealthy;
 
   String get scheduleModeLabel {
     if (usesFullScreenIntent) {
       return 'exact + full-screen';
     }
     return usesExactScheduling ? 'exactAllowWhileIdle' : 'inexactAllowWhileIdle';
+  }
+
+  ReminderSyncState copyWith({
+    int? requestedReminderCount,
+    int? pendingRequestCount,
+    List<ScheduledReminderEntry>? scheduledReminders,
+    bool? usesExactScheduling,
+    bool? usesFullScreenIntent,
+    bool? notificationsPermissionAtSync,
+    DateTime? syncedAt,
+    bool clearSyncedAt = false,
+    DateTime? nextReminderAt,
+    bool clearNextReminderAt = false,
+    String? lastError,
+    bool clearLastError = false,
+  }) {
+    return ReminderSyncState(
+      requestedReminderCount:
+          requestedReminderCount ?? this.requestedReminderCount,
+      pendingRequestCount: pendingRequestCount ?? this.pendingRequestCount,
+      scheduledReminders: scheduledReminders ?? this.scheduledReminders,
+      usesExactScheduling: usesExactScheduling ?? this.usesExactScheduling,
+      usesFullScreenIntent: usesFullScreenIntent ?? this.usesFullScreenIntent,
+      notificationsPermissionAtSync:
+          notificationsPermissionAtSync ?? this.notificationsPermissionAtSync,
+      syncedAt: clearSyncedAt ? null : syncedAt ?? this.syncedAt,
+      nextReminderAt: clearNextReminderAt
+          ? null
+          : nextReminderAt ?? this.nextReminderAt,
+      lastError: clearLastError ? null : lastError ?? this.lastError,
+    );
   }
 
   Map<String, Object?> toJson() {

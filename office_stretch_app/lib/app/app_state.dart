@@ -40,6 +40,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<String?>? _notificationResponseSubscription;
   PendingReminderLaunch? _pendingReminderLaunch;
   int _programLaunchSequence = 0;
+  bool _isRepairingReminderQueue = false;
 
   bool get hasCompletedOnboarding => _profile != null;
   UserProfile? get profile => _profile;
@@ -195,6 +196,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> resyncRemindersNow() async {
+    if (_settings.notificationsEnabled &&
+        _activePlan != null &&
+        hasValidReminderWindow) {
+      _nextReminderAt = _recalculateNextReminderFromNow();
+      notifyListeners();
+    }
     _queueSideEffects(syncReminders: true);
     await _sideEffects;
     notifyListeners();
@@ -386,11 +393,16 @@ class AppState extends ChangeNotifier {
 
   Future<void> _syncReminders() async {
     try {
-      final syncState = await _reminderScheduler.sync(
+      var syncState = await _reminderScheduler.sync(
         settings: _settings,
         requestedStartAt: _normalizedReminder(_nextReminderAt),
         plan: _activePlan,
       );
+
+      if (_shouldRepairReminderQueue(syncState)) {
+        syncState = await _repairReminderQueue(syncState);
+      }
+
       _reminderSyncState = syncState;
       await _refreshReminderDiagnostics(notify: false);
 
@@ -415,6 +427,50 @@ class AppState extends ChangeNotifier {
         lastError: error.toString(),
       );
       notifyListeners();
+    }
+  }
+
+  bool _shouldRepairReminderQueue(ReminderSyncState syncState) {
+    return !_isRepairingReminderQueue &&
+        _activePlan != null &&
+        _settings.notificationsEnabled &&
+        hasValidReminderWindow &&
+        syncState.notificationsPermissionAtSync != false &&
+        syncState.needsRepair;
+  }
+
+  Future<ReminderSyncState> _repairReminderQueue(
+    ReminderSyncState failedSyncState,
+  ) async {
+    if (_activePlan == null) {
+      return failedSyncState;
+    }
+
+    _isRepairingReminderQueue = true;
+    try {
+      final repairedStartAt = _recalculateNextReminderFromNow();
+      final repairedState = await _reminderScheduler.sync(
+        settings: _settings,
+        requestedStartAt: _normalizedReminder(repairedStartAt),
+        plan: _activePlan,
+      );
+
+      if (!repairedState.needsRepair) {
+        _nextReminderAt = repairedState.nextReminderAt ?? repairedStartAt;
+        return repairedState.copyWith(clearLastError: true);
+      }
+
+      return repairedState.copyWith(
+        lastError:
+            '${failedSyncState.lastError ?? 'Reminder queue needs repair.'} Repair retry did not restore the queue.',
+      );
+    } catch (error) {
+      return failedSyncState.copyWith(
+        lastError:
+            '${failedSyncState.lastError ?? 'Reminder queue needs repair.'} Repair retry failed: $error',
+      );
+    } finally {
+      _isRepairingReminderQueue = false;
     }
   }
 

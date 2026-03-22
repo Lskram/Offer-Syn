@@ -113,6 +113,59 @@ class TestReminderScheduler implements ReminderScheduler {
   }
 }
 
+class RepairingTestReminderScheduler extends TestReminderScheduler {
+  RepairingTestReminderScheduler(
+    super.now, {
+    super.notificationsPermissionAtSync,
+    super.maxEntries,
+  });
+
+  int syncCallCount = 0;
+
+  @override
+  Future<ReminderSyncState> sync({
+    required ReminderSettings settings,
+    required DateTime requestedStartAt,
+    required ExercisePlan? plan,
+  }) async {
+    if (!settings.notificationsEnabled || plan == null) {
+      return const ReminderSyncState.empty();
+    }
+
+    syncCallCount += 1;
+    final schedule = ReminderTimeline.buildSchedule(
+      requestedStartAt: requestedStartAt,
+      settings: settings,
+      maxEntries: maxEntries,
+      horizon: const Duration(days: 1),
+      now: now(),
+    );
+    final queueRecovered = syncCallCount > 1;
+
+    return ReminderSyncState(
+      requestedReminderCount: schedule.length,
+      pendingRequestCount: queueRecovered ? schedule.length : 0,
+      scheduledReminders: queueRecovered
+          ? [
+              for (var index = 0; index < schedule.length; index += 1)
+                ScheduledReminderEntry(
+                  notificationId: 2000 + index,
+                  scheduledAt: schedule[index],
+                ),
+            ]
+          : const <ScheduledReminderEntry>[],
+      usesExactScheduling: false,
+      usesFullScreenIntent: false,
+      notificationsPermissionAtSync: notificationsPermissionAtSync,
+      syncedAt: now(),
+      nextReminderAt: schedule.isEmpty ? null : schedule.first,
+      lastError: queueRecovered
+          ? null
+          : 'Reminder queue is empty after scheduling. A repair sync is required.',
+    );
+  }
+}
+
 void main() {
   UserProfile buildProfile() {
     return const UserProfile(
@@ -259,6 +312,27 @@ void main() {
     expect(state.settings.activeStart, const TimeOfDay(hour: 18, minute: 0));
     expect(state.settings.activeEnd, const TimeOfDay(hour: 23, minute: 59));
     expect(state.nextReminderAt, DateTime(2026, 3, 18, 18));
+  });
+
+  test('repairs an empty reminder queue automatically after sync', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final scheduler = RepairingTestReminderScheduler(() => now);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => now,
+    );
+
+    await state.initialize();
+    state.completeQuestionnaire(buildProfile());
+    await state.settleSideEffects();
+
+    expect(scheduler.syncCallCount, 2);
+    expect(state.reminderSyncState.needsRepair, isFalse);
+    expect(state.reminderSyncState.pendingRequestCount, greaterThan(0));
+    expect(state.reminderSyncState.scheduledReminders, isNotEmpty);
+    expect(state.reminderSyncState.lastError, isNull);
+    expect(state.nextReminderAt, isNotNull);
   });
 
   test('updateAlertMode persists the selected reminder delivery mode', () async {

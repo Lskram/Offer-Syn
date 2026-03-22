@@ -137,7 +137,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
   static const _channelId = 'stretch_reminders';
   static const _channelName = 'OfficeRelief reminders';
   static const _channelDescription = 'Reminders to pause, stretch, and reset';
-  static const _channelVersion = 'v4';
+  static const _channelVersion = 'v5';
   static const _managedChannelPrefix = '${_channelId}_${_channelVersion}_';
   static const _notificationBaseId = 1000;
   static const _testNotificationId = 999;
@@ -337,23 +337,23 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     required ExercisePlan? plan,
   }) async {
     final syncedAt = DateTime.now();
-    await _cancelManagedNotifications();
-    await _cleanupManagedChannels(
-      retainChannelId: settings.notificationsEnabled && plan != null
-          ? _resolveChannelId(settings)
-          : null,
-    );
+    final notificationsPermissionAtSync = await _readNotificationsEnabled();
+    final retainChannelId = settings.notificationsEnabled && plan != null
+        ? _resolveChannelId(settings)
+        : null;
 
     if (!settings.notificationsEnabled ||
         plan == null ||
         !ReminderTimeline.hasValidWindow(settings)) {
+      await _cancelManagedNotifications();
+      await _cleanupManagedChannels(retainChannelId: retainChannelId);
       return ReminderSyncState(
         requestedReminderCount: 0,
         pendingRequestCount: 0,
         scheduledReminders: const <ScheduledReminderEntry>[],
         usesExactScheduling: false,
         usesFullScreenIntent: false,
-        notificationsPermissionAtSync: await _readNotificationsEnabled(),
+        notificationsPermissionAtSync: notificationsPermissionAtSync,
         syncedAt: syncedAt,
       );
     }
@@ -376,16 +376,30 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       settings: settings,
       maxEntries: _maxScheduledNotifications,
     );
+    if (schedule.isEmpty) {
+      return ReminderSyncState(
+        requestedReminderCount: 0,
+        pendingRequestCount: 0,
+        scheduledReminders: const <ScheduledReminderEntry>[],
+        usesExactScheduling: usesExactScheduling,
+        usesFullScreenIntent: usesFullScreenIntent,
+        notificationsPermissionAtSync: notificationsPermissionAtSync,
+        syncedAt: syncedAt,
+        lastError: 'No reminder slots were generated for the current settings.',
+      );
+    }
     final channelId = _resolveChannelId(settings);
     final details = _buildNotificationDetails(
       settings: settings,
       channelId: channelId,
       usesFullScreenIntent: usesFullScreenIntent,
     );
+    await _plugin.cancel(id: _testNotificationId);
 
-    for (var index = 0; index < schedule.length; index += 1) {
-      final scheduledAt = schedule[index];
-      await _plugin.zonedSchedule(
+    try {
+      for (var index = 0; index < schedule.length; index += 1) {
+        final scheduledAt = schedule[index];
+        await _plugin.zonedSchedule(
         id: _notificationBaseId + index,
         title: 'ถึงเวลาพักยืดเส้น',
         body:
@@ -402,29 +416,42 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         androidScheduleMode: usesExactScheduling
             ? AndroidScheduleMode.exactAllowWhileIdle
             : AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+
+      await _cancelManagedNotifications(startIndex: schedule.length);
+      await _cleanupManagedChannels(retainChannelId: channelId);
+    } catch (error) {
+      final pendingRequests = await _readManagedPendingRequests();
+      return _buildSyncState(
+        schedule: schedule,
+        pendingRequests: pendingRequests,
+        usesExactScheduling: usesExactScheduling,
+        usesFullScreenIntent: usesFullScreenIntent,
+        notificationsPermissionAtSync: notificationsPermissionAtSync,
+        syncedAt: syncedAt,
+        lastError: 'Failed to schedule reminders: $error',
       );
     }
 
     final pendingRequests = await _readManagedPendingRequests();
-    final pendingIds = pendingRequests.map((request) => request.id).toSet();
-
-    return ReminderSyncState(
-      requestedReminderCount: schedule.length,
-      pendingRequestCount: pendingRequests.length,
-      scheduledReminders: [
-        for (var index = 0; index < schedule.length; index += 1)
-          if (pendingIds.contains(_notificationBaseId + index))
-            ScheduledReminderEntry(
-              notificationId: _notificationBaseId + index,
-              scheduledAt: schedule[index],
-            ),
-      ],
+    final syncState = _buildSyncState(
+      schedule: schedule,
+      pendingRequests: pendingRequests,
       usesExactScheduling: usesExactScheduling,
       usesFullScreenIntent: usesFullScreenIntent,
-      notificationsPermissionAtSync: await _readNotificationsEnabled(),
+      notificationsPermissionAtSync: notificationsPermissionAtSync,
       syncedAt: syncedAt,
-      nextReminderAt: schedule.isEmpty ? null : schedule.first,
     );
+
+    if (syncState.needsRepair) {
+      return syncState.copyWith(
+        lastError:
+            'Reminder queue is empty after scheduling. A repair sync is required.',
+      );
+    }
+
+    return syncState;
   }
 
   @override
@@ -499,11 +526,45 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         ?.requestPermissions(alert: true, badge: false, sound: true);
   }
 
-  Future<void> _cancelManagedNotifications() async {
-    await _plugin.cancel(id: _testNotificationId);
-    for (var index = 0; index < _maxScheduledNotifications; index += 1) {
+  Future<void> _cancelManagedNotifications({int startIndex = 0}) async {
+    if (startIndex == 0) {
+      await _plugin.cancel(id: _testNotificationId);
+    }
+
+    for (var index = startIndex; index < _maxScheduledNotifications; index += 1) {
       await _plugin.cancel(id: _notificationBaseId + index);
     }
+  }
+
+  ReminderSyncState _buildSyncState({
+    required List<DateTime> schedule,
+    required List<PendingNotificationRequest> pendingRequests,
+    required bool usesExactScheduling,
+    required bool usesFullScreenIntent,
+    required bool? notificationsPermissionAtSync,
+    required DateTime syncedAt,
+    String? lastError,
+  }) {
+    final pendingIds = pendingRequests.map((request) => request.id).toSet();
+
+    return ReminderSyncState(
+      requestedReminderCount: schedule.length,
+      pendingRequestCount: pendingRequests.length,
+      scheduledReminders: [
+        for (var index = 0; index < schedule.length; index += 1)
+          if (pendingIds.contains(_notificationBaseId + index))
+            ScheduledReminderEntry(
+              notificationId: _notificationBaseId + index,
+              scheduledAt: schedule[index],
+            ),
+      ],
+      usesExactScheduling: usesExactScheduling,
+      usesFullScreenIntent: usesFullScreenIntent,
+      notificationsPermissionAtSync: notificationsPermissionAtSync,
+      syncedAt: syncedAt,
+      nextReminderAt: schedule.isEmpty ? null : schedule.first,
+      lastError: lastError,
+    );
   }
 
   Future<List<PendingNotificationRequest>> _readManagedPendingRequests() async {
@@ -540,6 +601,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         icon: 'ic_stat_office_relief',
         importance: Importance.max,
         priority: Priority.max,
+        ticker: 'OfficeRelief reminder',
         playSound: settings.soundEnabled,
         sound: _resolveAndroidSound(settings),
         enableVibration: settings.vibrationEnabled,
@@ -547,9 +609,11 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
             ? _resolveVibrationPattern(settings.vibrationLevel)
             : null,
         visibility: NotificationVisibility.public,
-        category: usesFullScreenIntent
+        category: settings.alertMode.prefersExactScheduling
             ? AndroidNotificationCategory.alarm
             : AndroidNotificationCategory.reminder,
+        autoCancel: false,
+        channelShowBadge: false,
         fullScreenIntent: usesFullScreenIntent,
         audioAttributesUsage: settings.alertMode.prefersExactScheduling
             ? AudioAttributesUsage.alarm
@@ -585,6 +649,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
 
   String _resolveChannelId(ReminderSettings settings) {
     final rawKey = jsonEncode(<String, Object?>{
+      'alertMode': settings.alertMode.name,
       'soundEnabled': settings.soundEnabled,
       'vibrationEnabled': settings.vibrationEnabled,
       'vibrationLevel': settings.vibrationLevel.name,

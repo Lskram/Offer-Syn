@@ -401,9 +401,10 @@ class _ReminderReadinessCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final syncState = appState.reminderSyncState;
+    final hasReminderIssue = diagnostics.needsAttention || syncState.needsRepair;
 
     return Card(
-      color: diagnostics.needsAttention
+      color: hasReminderIssue
           ? theme.colorScheme.errorContainer
           : theme.colorScheme.primaryContainer,
       child: Padding(
@@ -412,13 +413,13 @@ class _ReminderReadinessCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Reminder readiness',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: diagnostics.needsAttention
-                    ? theme.colorScheme.onErrorContainer
-                    : theme.colorScheme.onPrimaryContainer,
-              ),
+                'Reminder readiness',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: hasReminderIssue
+                      ? theme.colorScheme.onErrorContainer
+                      : theme.colorScheme.onPrimaryContainer,
+                ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -426,7 +427,7 @@ class _ReminderReadinessCard extends StatelessWidget {
                   ? 'Android สามารถแจ้งเตือนตอนจอดำหรือขณะใช้แอปอื่นได้ แต่ความตรงเวลายังขึ้นกับ exact alarm และ battery policy'
                   : 'หน้านี้ออกแบบมาสำหรับ Android local notification flow เป็นหลัก',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: diagnostics.needsAttention
+                color: hasReminderIssue
                     ? theme.colorScheme.onErrorContainer
                     : theme.colorScheme.onPrimaryContainer,
               ),
@@ -515,6 +516,14 @@ class _ReminderReadinessCard extends StatelessWidget {
               value: '${syncState.pendingRequestCount}',
             ),
             _StatusRow(
+              label: 'Reminder queue',
+              value: syncState.needsRepair
+                  ? 'Needs repair'
+                  : syncState.expectsScheduledReminders
+                  ? 'Healthy'
+                  : 'Not scheduled',
+            ),
+            _StatusRow(
               label: 'Next scheduled reminder',
               value: _formatScheduledTime(context, syncState.nextReminderAt),
             ),
@@ -522,6 +531,25 @@ class _ReminderReadinessCard extends StatelessWidget {
               label: 'Last sync',
               value: _formatScheduledTime(context, syncState.syncedAt),
             ),
+            if (syncState.needsRepair) ...[
+              const SizedBox(height: 12),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    'Reminder queue is empty even though reminders should be active. Repair the queue now.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (syncState.lastError != null) ...[
               const SizedBox(height: 12),
               DecoratedBox(
