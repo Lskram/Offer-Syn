@@ -38,6 +38,9 @@ class _AlarmFlowScheduler implements ReminderScheduler {
   }
 
   @override
+  Future<void> clearDeliveredNotifications() async {}
+
+  @override
   Future<SystemNotificationSound?> pickSystemNotificationSound({
     String? existingUri,
   }) async {

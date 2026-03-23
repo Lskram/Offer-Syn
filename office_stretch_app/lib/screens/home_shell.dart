@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_state.dart';
 import '../data/exercise_catalog.dart';
 import '../models/app_models.dart';
+import '../services/host_activity_bridge.dart';
 import 'alarm_screen.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
@@ -167,9 +168,11 @@ class _HomeShellState extends State<HomeShell> {
           break;
         case AlarmScreenAction.snooze:
           widget.appState.snoozePendingReminder(launch);
+          await finishAlarmHostIfPresent();
           break;
         case AlarmScreenAction.dismiss:
           widget.appState.dismissPendingReminder(launch);
+          await finishAlarmHostIfPresent();
           break;
         case null:
           break;

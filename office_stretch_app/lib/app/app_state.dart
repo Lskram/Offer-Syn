@@ -316,7 +316,7 @@ class AppState extends ChangeNotifier {
   void rescheduleAfterSession() {
     _nextReminderAt = _defaultNextReminder();
     notifyListeners();
-    _queueSideEffects(syncReminders: true);
+    _queueSideEffects(syncReminders: true, clearDeliveredNotifications: true);
   }
 
   void snoozeReminder([int minutes = 10]) {
@@ -324,7 +324,7 @@ class AppState extends ChangeNotifier {
       _now().add(Duration(minutes: minutes)),
     );
     notifyListeners();
-    _queueSideEffects(syncReminders: true);
+    _queueSideEffects(syncReminders: true, clearDeliveredNotifications: true);
   }
 
   void snoozePendingReminder(PendingReminderLaunch launch, [int minutes = 10]) {
@@ -337,7 +337,7 @@ class AppState extends ChangeNotifier {
       _now().add(Duration(minutes: minutes)),
     );
     notifyListeners();
-    _queueSideEffects(syncReminders: true);
+    _queueSideEffects(syncReminders: true, clearDeliveredNotifications: true);
   }
 
   void dismissPendingReminder(PendingReminderLaunch launch) {
@@ -348,7 +348,7 @@ class AppState extends ChangeNotifier {
     );
     _nextReminderAt = _defaultNextReminder();
     notifyListeners();
-    _queueSideEffects(syncReminders: true);
+    _queueSideEffects(syncReminders: true, clearDeliveredNotifications: true);
   }
 
   Future<void> waitForIdle() => _sideEffects;
@@ -366,12 +366,18 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  void _queueSideEffects({required bool syncReminders}) {
+  void _queueSideEffects({
+    required bool syncReminders,
+    bool clearDeliveredNotifications = false,
+  }) {
     _sideEffects = _sideEffects
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('AppState side effect failed: $error');
         })
         .then((_) async {
+          if (clearDeliveredNotifications) {
+            await _reminderScheduler.clearDeliveredNotifications();
+          }
           if (syncReminders) {
             await _syncReminders();
           }
@@ -539,6 +545,10 @@ class AppState extends ChangeNotifier {
     );
     _programLaunchSequence += 1;
     notifyListeners();
+    _queueSideEffects(
+      syncReminders: false,
+      clearDeliveredNotifications: true,
+    );
   }
 
   ReminderLaunchPayload? _parseReminderLaunchPayload(String? payload) {

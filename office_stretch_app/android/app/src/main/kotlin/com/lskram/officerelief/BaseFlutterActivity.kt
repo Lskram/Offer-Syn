@@ -79,6 +79,23 @@ abstract class BaseFlutterActivity : FlutterActivity() {
             }
         }
 
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "office_stretch_app/host_activity",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "finishIfAlarmHost" -> {
+                    val shouldFinish = this is AlarmActivity
+                    if (shouldFinish) {
+                        finish()
+                    }
+                    result.success(shouldFinish)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
         appLaunchChannel =
             MethodChannel(
                 flutterEngine.dartExecutor.binaryMessenger,

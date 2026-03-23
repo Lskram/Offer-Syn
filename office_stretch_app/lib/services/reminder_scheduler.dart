@@ -23,6 +23,8 @@ abstract class ReminderScheduler {
 
   Future<ReminderDiagnostics> diagnostics();
 
+  Future<void> clearDeliveredNotifications();
+
   Future<void> requestPermissions();
 
   Future<bool> requestExactAlarmPermission();
@@ -65,6 +67,9 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<ReminderDiagnostics> diagnostics() async {
     return const ReminderDiagnostics.unsupported();
   }
+
+  @override
+  Future<void> clearDeliveredNotifications() async {}
 
   @override
   Future<void> requestPermissions() async {}
@@ -240,6 +245,14 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       exactAlarmsEnabled: exactAlarmsEnabled,
       fullScreenIntentEnabled: fullScreenIntentEnabled,
     );
+  }
+
+  @override
+  Future<void> clearDeliveredNotifications() async {
+    final activeIds = await _readManagedActiveNotificationIds();
+    for (final notificationId in activeIds) {
+      await _plugin.cancel(id: notificationId);
+    }
   }
 
   @override
@@ -586,6 +599,50 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     }
 
     return const <PendingNotificationRequest>[];
+  }
+
+  Future<List<int>> _readManagedActiveNotificationIds() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return const <int>[];
+    }
+
+    try {
+      final rawNotifications = await _settingsChannel.invokeMethod<List<Object?>>(
+        'getActiveNotifications',
+      );
+      if (rawNotifications == null) {
+        return const <int>[];
+      }
+
+      final managedIds = <int>{};
+      for (final entry in rawNotifications) {
+        if (entry is! Map) {
+          continue;
+        }
+
+        final notificationId = entry['id'];
+        if (notificationId is! int) {
+          continue;
+        }
+
+        final channelId = entry['channelId'] as String?;
+        final isManagedReminderId =
+            notificationId == _testNotificationId ||
+            (notificationId >= _notificationBaseId &&
+                notificationId < (_notificationBaseId + _maxScheduledNotifications));
+        final isManagedReminderChannel =
+            channelId != null && channelId.startsWith(_managedChannelPrefix);
+
+        if (isManagedReminderId || isManagedReminderChannel) {
+          managedIds.add(notificationId);
+        }
+      }
+
+      return managedIds.toList(growable: false);
+    } catch (error) {
+      debugPrint('Failed to read active reminder notifications: $error');
+      return const <int>[];
+    }
   }
 
   NotificationDetails _buildNotificationDetails({

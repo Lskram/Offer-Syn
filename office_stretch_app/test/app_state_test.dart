@@ -44,6 +44,9 @@ class TestReminderScheduler implements ReminderScheduler {
   }
 
   @override
+  Future<void> clearDeliveredNotifications() async {}
+
+  @override
   Future<void> initialize() async {}
 
   @override

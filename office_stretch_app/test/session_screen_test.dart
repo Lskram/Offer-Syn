@@ -6,7 +6,7 @@ import 'package:office_stretch_app/models/app_models.dart';
 import 'package:office_stretch_app/screens/session_screen.dart';
 
 void main() {
-  testWidgets('session screen uses horizontal hourglass countdown', (
+  testWidgets('session screen matches the reference timer card', (
     tester,
   ) async {
     final plan = ExerciseCatalog.buildPlan(
@@ -34,7 +34,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('เวลาของท่านี้'), findsOneWidget);
-    expect(find.text('นาฬิกาทรายของท่านี้'), findsOneWidget);
+    expect(find.textContaining('วินาที'), findsOneWidget);
+    expect(find.text('ทำได้ขณะนั่ง'), findsOneWidget);
+    expect(find.text('นาฬิกาทรายของท่านี้'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 }
