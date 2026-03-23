@@ -8,6 +8,7 @@ import 'package:office_stretch_app/models/app_models.dart';
 import 'package:office_stretch_app/models/persisted_app_data.dart';
 import 'package:office_stretch_app/models/reminder_diagnostics.dart';
 import 'package:office_stretch_app/models/reminder_sync_state.dart';
+import 'package:office_stretch_app/models/system_time_change_signal.dart';
 import 'package:office_stretch_app/models/system_notification_sound.dart';
 import 'package:office_stretch_app/services/app_persistence.dart';
 import 'package:office_stretch_app/services/reminder_scheduler.dart';
@@ -20,13 +21,16 @@ class TestReminderScheduler implements ReminderScheduler {
     this.notificationsPermissionAtSync = true,
     this.maxEntries = 4,
     String? initialPayload,
-  }) : _pendingPayload = initialPayload;
+    SystemTimeChangeSignal? pendingSystemTimeChange,
+  }) : _pendingPayload = initialPayload,
+       _pendingSystemTimeChange = pendingSystemTimeChange;
 
   final DateTime Function() now;
   final bool confirmPendingRequests;
   final bool? notificationsPermissionAtSync;
   final int maxEntries;
   String? _pendingPayload;
+  SystemTimeChangeSignal? _pendingSystemTimeChange;
 
   @override
   Stream<String?> get notificationResponses => const Stream<String?>.empty();
@@ -45,6 +49,13 @@ class TestReminderScheduler implements ReminderScheduler {
 
   @override
   Future<void> clearDeliveredNotifications() async {}
+
+  @override
+  Future<SystemTimeChangeSignal?> takePendingSystemTimeChange() async {
+    final signal = _pendingSystemTimeChange;
+    _pendingSystemTimeChange = null;
+    return signal;
+  }
 
   @override
   Future<void> initialize() async {}
@@ -476,5 +487,70 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('initialize recalculates reminders after a pending system time change', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final profile = buildProfile();
+    final persistence = InMemoryAppPersistence();
+    await persistence.save(
+      PersistedAppData(
+        profile: profile,
+        settings: defaultReminderSettings,
+        logs: const <ExerciseLog>[],
+        nextReminderAt: DateTime(2026, 3, 18, 12),
+      ),
+    );
+
+    final state = AppState(
+      persistence: persistence,
+      reminderScheduler: TestReminderScheduler(
+        () => now,
+        pendingSystemTimeChange: SystemTimeChangeSignal(
+          action: 'android.intent.action.TIME_SET',
+          observedAt: now,
+          timeZoneId: 'Asia/Bangkok',
+          systemTime: now,
+        ),
+      ),
+      now: () => now,
+    );
+
+    await state.initialize();
+
+    expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
+  });
+
+  test('resume recalculates reminders after a pending system time change', () async {
+    var now = DateTime(2026, 3, 18, 8, 5);
+    final scheduler = TestReminderScheduler(() => now);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => now,
+    );
+
+    await state.initialize();
+    state.completeQuestionnaire(buildProfile());
+    await state.settleSideEffects();
+
+    expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
+
+    state.snoozeReminder(240);
+    await state.settleSideEffects();
+    expect(state.nextReminderAt, DateTime(2026, 3, 18, 12, 5));
+
+    now = DateTime(2026, 3, 18, 8, 25);
+    scheduler
+      .._pendingSystemTimeChange = SystemTimeChangeSignal(
+        action: 'android.intent.action.TIMEZONE_CHANGED',
+        observedAt: now,
+        timeZoneId: 'Asia/Tokyo',
+        systemTime: now,
+      );
+    state.handleAppResumed();
+    await state.settleSideEffects();
+
+    expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
   });
 }

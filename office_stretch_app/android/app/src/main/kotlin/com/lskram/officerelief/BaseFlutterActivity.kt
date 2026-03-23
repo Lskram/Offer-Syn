@@ -16,6 +16,13 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 abstract class BaseFlutterActivity : FlutterActivity() {
+    companion object {
+        private const val alarmFullscreenAction =
+            "com.lskram.officerelief.action.ALARM_FULLSCREEN"
+        private const val alarmPayloadExtra =
+            "com.lskram.officerelief.extra.ALARM_PAYLOAD"
+    }
+
     private val notificationSoundPickerRequestCode = 2048
 
     private var appLaunchBridgeReady = false
@@ -56,6 +63,10 @@ abstract class BaseFlutterActivity : FlutterActivity() {
                     result.success(getActiveNotifications())
                 }
 
+                "takePendingTimeChangeSignal" -> {
+                    result.success(ReminderTimeChangeStore.consume(this))
+                }
+
                 "pickNotificationSound" -> {
                     pickNotificationSound(call.argument("existingUri"), result)
                 }
@@ -85,7 +96,7 @@ abstract class BaseFlutterActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "finishIfAlarmHost" -> {
-                    val shouldFinish = this is AlarmActivity
+                    val shouldFinish = javaClass.simpleName == "AlarmActivity"
                     if (shouldFinish) {
                         finish()
                     }
@@ -195,11 +206,11 @@ abstract class BaseFlutterActivity : FlutterActivity() {
     }
 
     protected fun captureAlarmLaunchIntent(intent: Intent?) {
-        if (intent == null || intent.action != EntryActivity.ACTION_ALARM_FULLSCREEN) {
+        if (intent == null || intent.action != alarmFullscreenAction) {
             return
         }
 
-        val payload = intent.getStringExtra(EntryActivity.EXTRA_ALARM_PAYLOAD) ?: return
+        val payload = intent.getStringExtra(alarmPayloadExtra) ?: return
         pendingLaunchCommand =
             mapOf(
                 "action" to "presentAlarmLaunch",

@@ -8,6 +8,7 @@ import '../models/app_models.dart';
 import '../models/persisted_app_data.dart';
 import '../models/reminder_diagnostics.dart';
 import '../models/reminder_sync_state.dart';
+import '../models/system_time_change_signal.dart';
 import '../models/system_notification_sound.dart';
 import '../services/app_persistence.dart';
 import '../services/reminder_scheduler.dart';
@@ -103,7 +104,10 @@ class AppState extends ChangeNotifier {
     _notificationResponseSubscription = _reminderScheduler.notificationResponses
         .listen(_handleNotificationPayload);
 
-    _reconcileMissedReminders(now: _now());
+    final didObserveSystemTimeChange = await _consumePendingSystemTimeChange();
+    if (!didObserveSystemTimeChange) {
+      _reconcileMissedReminders(now: _now());
+    }
     await _refreshReminderDiagnostics(notify: false);
     await _syncAndPersistNow();
     notifyListeners();
@@ -208,9 +212,20 @@ class AppState extends ChangeNotifier {
   }
 
   void handleAppResumed() {
-    _reconcileMissedReminders(now: _now());
-    notifyListeners();
-    _queueSideEffects(syncReminders: true);
+    _sideEffects = _sideEffects
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('AppState side effect failed: $error');
+        })
+        .then((_) async {
+          final didObserveSystemTimeChange =
+              await _consumePendingSystemTimeChange();
+          if (!didObserveSystemTimeChange) {
+            _reconcileMissedReminders(now: _now());
+          }
+          notifyListeners();
+          await _syncReminders();
+          await _persistence.save(_buildSnapshot());
+        });
   }
 
   PendingReminderLaunch? consumePendingReminderLaunch() {
@@ -395,6 +410,30 @@ class AppState extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  Future<bool> _consumePendingSystemTimeChange() async {
+    final signal = await _reminderScheduler.takePendingSystemTimeChange();
+    if (signal == null) {
+      return false;
+    }
+
+    _handleSystemTimeChange(signal);
+    return true;
+  }
+
+  void _handleSystemTimeChange(SystemTimeChangeSignal signal) {
+    debugPrint(
+      'System time change observed: action=${signal.action}, zone=${signal.timeZoneId}, observedAt=${signal.observedAt.toIso8601String()}',
+    );
+
+    if (_activePlan == null ||
+        !_settings.notificationsEnabled ||
+        !hasValidReminderWindow) {
+      return;
+    }
+
+    _nextReminderAt = _recalculateNextReminderFromNow();
   }
 
   Future<void> _syncReminders() async {

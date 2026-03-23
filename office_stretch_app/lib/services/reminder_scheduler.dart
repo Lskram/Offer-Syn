@@ -11,6 +11,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../models/app_models.dart';
 import '../models/reminder_diagnostics.dart';
 import '../models/reminder_sync_state.dart';
+import '../models/system_time_change_signal.dart';
 import '../models/system_notification_sound.dart';
 import 'reminder_timeline.dart';
 
@@ -24,6 +25,8 @@ abstract class ReminderScheduler {
   Future<ReminderDiagnostics> diagnostics();
 
   Future<void> clearDeliveredNotifications();
+
+  Future<SystemTimeChangeSignal?> takePendingSystemTimeChange();
 
   Future<void> requestPermissions();
 
@@ -70,6 +73,9 @@ class NoopReminderScheduler implements ReminderScheduler {
 
   @override
   Future<void> clearDeliveredNotifications() async {}
+
+  @override
+  Future<SystemTimeChangeSignal?> takePendingSystemTimeChange() async => null;
 
   @override
   Future<void> requestPermissions() async {}
@@ -252,6 +258,27 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     final activeIds = await _readManagedActiveNotificationIds();
     for (final notificationId in activeIds) {
       await _plugin.cancel(id: notificationId);
+    }
+  }
+
+  @override
+  Future<SystemTimeChangeSignal?> takePendingSystemTimeChange() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return null;
+    }
+
+    try {
+      final rawSignal = await _settingsChannel.invokeMapMethod<String, Object?>(
+        'takePendingTimeChangeSignal',
+      );
+      if (rawSignal == null) {
+        return null;
+      }
+
+      return SystemTimeChangeSignal.fromJson(rawSignal);
+    } catch (error) {
+      debugPrint('Failed to read pending time change signal: $error');
+      return null;
     }
   }
 

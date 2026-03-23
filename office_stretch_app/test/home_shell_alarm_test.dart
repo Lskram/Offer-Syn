@@ -10,6 +10,7 @@ import 'package:office_stretch_app/models/app_models.dart';
 import 'package:office_stretch_app/models/persisted_app_data.dart';
 import 'package:office_stretch_app/models/reminder_diagnostics.dart';
 import 'package:office_stretch_app/models/reminder_sync_state.dart';
+import 'package:office_stretch_app/models/system_time_change_signal.dart';
 import 'package:office_stretch_app/models/system_notification_sound.dart';
 import 'package:office_stretch_app/screens/home_shell.dart';
 import 'package:office_stretch_app/services/app_persistence.dart';
@@ -47,6 +48,9 @@ class LaunchTestReminderScheduler implements ReminderScheduler {
 
   @override
   Future<void> clearDeliveredNotifications() async {}
+
+  @override
+  Future<SystemTimeChangeSignal?> takePendingSystemTimeChange() async => null;
 
   @override
   Future<void> requestPermissions() async {}
