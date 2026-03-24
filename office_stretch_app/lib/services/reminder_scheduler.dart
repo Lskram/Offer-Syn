@@ -15,6 +15,8 @@ import '../models/system_time_change_signal.dart';
 import '../models/system_notification_sound.dart';
 import 'reminder_timeline.dart';
 
+const _notificationSmallIcon = 'ic_stat_office_relief';
+
 abstract class ReminderScheduler {
   Stream<String?> get notificationResponses;
 
@@ -250,7 +252,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       ignoresBatteryOptimizations: ignoresBatteryOptimizations,
       exactAlarmsEnabled: exactAlarmsEnabled,
       fullScreenIntentEnabled: fullScreenIntentEnabled,
-    );
+      );
   }
 
   @override
@@ -471,16 +473,67 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       await _cancelManagedNotifications(startIndex: schedule.length);
       await _cleanupManagedChannels(retainChannelId: channelId);
     } catch (error) {
-      final pendingRequests = await _readManagedPendingRequests();
-      return _buildSyncState(
-        schedule: schedule,
-        pendingRequests: pendingRequests,
-        usesExactScheduling: usesExactScheduling,
-        usesFullScreenIntent: usesFullScreenIntent,
-        notificationsPermissionAtSync: notificationsPermissionAtSync,
-        syncedAt: syncedAt,
-        lastError: 'Failed to schedule reminders: $error',
-      );
+      if (_isInvalidNotificationIconError(error)) {
+        debugPrint(
+          'Reminder schedule hit invalid Android icon resource. Retrying without an explicit small icon: $error',
+        );
+        try {
+          await _cancelManagedNotifications();
+          final fallbackDetails = _buildNotificationDetails(
+            settings: settings,
+            channelId: channelId,
+            usesFullScreenIntent: usesFullScreenIntent,
+            icon: null,
+          );
+          for (var index = 0; index < schedule.length; index += 1) {
+            final scheduledAt = schedule[index];
+            await _plugin.zonedSchedule(
+            id: _notificationBaseId + index,
+            title: 'เธ–เธถเธเน€เธงเธฅเธฒเธเธฑเธเธขเธทเธ”เน€เธชเนเธ',
+            body:
+                '${program.title} โ€ข ${program.exercises.length} เธ—เนเธฒ โ€ข เธฃเธญเธเธฅเธฐ ${settings.intervalMinutes} เธเธฒเธ—เธต',
+            scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
+            notificationDetails: fallbackDetails,
+            payload: jsonEncode(
+              ReminderLaunchPayload(
+                planId: plan.id,
+                reminderAt: scheduledAt,
+                alertMode: settings.alertMode,
+              ).toJson(),
+            ),
+            androidScheduleMode: usesExactScheduling
+                ? AndroidScheduleMode.exactAllowWhileIdle
+                : AndroidScheduleMode.inexactAllowWhileIdle,
+            );
+          }
+
+          await _cancelManagedNotifications(startIndex: schedule.length);
+          await _cleanupManagedChannels(retainChannelId: channelId);
+        } catch (fallbackError) {
+          final pendingRequests = await _readManagedPendingRequests();
+          return _buildSyncState(
+            schedule: schedule,
+            pendingRequests: pendingRequests,
+            usesExactScheduling: usesExactScheduling,
+            usesFullScreenIntent: usesFullScreenIntent,
+            notificationsPermissionAtSync: notificationsPermissionAtSync,
+            syncedAt: syncedAt,
+            lastError:
+                'Failed to schedule reminders after invalid icon fallback: $fallbackError',
+          );
+        }
+      } else {
+        final pendingRequests = await _readManagedPendingRequests();
+        return _buildSyncState(
+          schedule: schedule,
+          pendingRequests: pendingRequests,
+          usesExactScheduling: usesExactScheduling,
+          usesFullScreenIntent: usesFullScreenIntent,
+          notificationsPermissionAtSync: notificationsPermissionAtSync,
+          syncedAt: syncedAt,
+          lastError: 'Failed to schedule reminders: $error',
+        );
+      }
     }
 
     final pendingRequests = await _readManagedPendingRequests();
@@ -523,7 +576,8 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       usesFullScreenIntent: usesFullScreenIntent,
     );
 
-    await _plugin.show(
+    try {
+      await _plugin.show(
       id: _testNotificationId,
       title: 'ทดสอบการแจ้งเตือน OfficeRelief',
       body: program == null
@@ -537,7 +591,47 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
           isTest: true,
         ).toJson(),
       ),
-    );
+      );
+    } catch (error) {
+      if (!_isInvalidNotificationIconError(error)) {
+        rethrow;
+      }
+
+      debugPrint(
+        'Immediate notification hit invalid Android icon resource. Retrying without an explicit small icon: $error',
+      );
+      final fallbackDetails = _buildNotificationDetails(
+        settings: settings,
+        channelId: channelId,
+        usesFullScreenIntent: usesFullScreenIntent,
+        icon: null,
+      );
+      await _plugin.show(
+        id: _testNotificationId,
+        title: 'OfficeRelief test notification',
+        body: program == null
+            ? 'If you can see this notification, the reminder system is working.'
+            : 'If you can see this notification, reminders are ready for ${program.title}.',
+        notificationDetails: fallbackDetails,
+        payload: jsonEncode(
+          ReminderLaunchPayload(
+            planId: program?.id,
+            alertMode: settings.alertMode,
+            isTest: true,
+          ).toJson(),
+        ),
+      );
+    }
+  }
+
+  bool _isInvalidNotificationIconError(Object error) {
+    if (error is PlatformException && error.code == 'invalid_icon') {
+      return true;
+    }
+
+    final message = error.toString();
+    return message.contains('invalid_icon') ||
+        message.contains(_notificationSmallIcon);
   }
 
   AndroidFlutterLocalNotificationsPlugin? get _androidPlugin => _plugin
@@ -685,13 +779,14 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     required ReminderSettings settings,
     required String channelId,
     required bool usesFullScreenIntent,
+    String? icon = _notificationSmallIcon,
   }) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
         channelId,
         _channelName,
         channelDescription: _channelDescription,
-        icon: 'ic_stat_office_relief',
+        icon: icon,
         importance: Importance.max,
         priority: Priority.max,
         ticker: 'OfficeRelief reminder',
