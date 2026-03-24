@@ -28,6 +28,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
   Timer? _ticker;
   Timer? _metricsRecoveryTimer;
   int _tickerGeneration = 0;
+  int _exerciseRunToken = 0;
   int _exerciseIndex = 0;
   int _remainingSeconds = 0;
   int _completedCount = 0;
@@ -209,17 +210,22 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
 
   void _beginCurrentExercise() {
     _invalidateTicker();
+    final exerciseRunToken = ++_exerciseRunToken;
     setState(() {
       _remainingSeconds = _currentExercise.durationSeconds;
     });
-    _startTicker();
+    _startTicker(exerciseRunToken: exerciseRunToken);
   }
 
-  void _startTicker() {
+  void _startTicker({required int exerciseRunToken}) {
     _metricsRecoveryTimer?.cancel();
     final tickerGeneration = ++_tickerGeneration;
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (tickerGeneration != _tickerGeneration) {
+        timer.cancel();
+        return;
+      }
+      if (exerciseRunToken != _exerciseRunToken) {
         timer.cancel();
         return;
       }
@@ -229,7 +235,10 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
       }
       if (_remainingSeconds <= 1) {
         timer.cancel();
-        _advance(ExerciseStatus.done);
+        _advance(
+          ExerciseStatus.done,
+          expectedExerciseRunToken: exerciseRunToken,
+        );
         return;
       }
       setState(() {
@@ -251,16 +260,27 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
       return;
     }
 
+    final exerciseRunToken = _exerciseRunToken;
     _metricsRecoveryTimer = Timer(const Duration(milliseconds: 250), () {
       if (!mounted || _isTransitioning || _remainingSeconds <= 0) {
         return;
       }
-      _startTicker();
+      if (exerciseRunToken != _exerciseRunToken) {
+        return;
+      }
+      _startTicker(exerciseRunToken: exerciseRunToken);
     });
   }
 
-  Future<void> _advance(ExerciseStatus status) async {
+  Future<void> _advance(
+    ExerciseStatus status, {
+    int? expectedExerciseRunToken,
+  }) async {
     if (_isTransitioning) {
+      return;
+    }
+    if (expectedExerciseRunToken != null &&
+        expectedExerciseRunToken != _exerciseRunToken) {
       return;
     }
     _isTransitioning = true;

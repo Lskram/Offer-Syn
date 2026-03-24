@@ -90,4 +90,26 @@ void main() {
     expect(find.text('เสร็จสิ้นรอบยืดเส้น'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'session does not auto-complete when rotated near an exercise boundary',
+    (tester) async {
+      await pumpSession(tester, surfaceSize: const Size(1080, 2400));
+
+      await tester.pump(const Duration(seconds: 34));
+
+      tester.view.physicalSize = const Size(2400, 1080);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
