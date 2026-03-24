@@ -6,10 +6,10 @@ import 'package:office_stretch_app/models/app_models.dart';
 import 'package:office_stretch_app/screens/session_screen.dart';
 
 void main() {
-  testWidgets('session screen matches the reference timer card', (
-    tester,
-  ) async {
-    final plan = ExerciseCatalog.buildPlan(
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  ExercisePlan buildPlan() {
+    return ExerciseCatalog.buildPlan(
       const UserProfile(
         painSelections: [
           PainSelection(
@@ -22,21 +22,49 @@ void main() {
         stretchHabit: StretchHabit.sometimes,
       ),
     );
+  }
+
+  Future<void> pumpSession(
+    WidgetTester tester, {
+    Size? surfaceSize,
+  }) async {
+    if (surfaceSize != null) {
+      tester.view.physicalSize = surfaceSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+    }
 
     await tester.pumpWidget(
       MaterialApp(
         home: ExerciseSessionScreen(
           appState: AppState(),
-          plan: plan,
+          plan: buildPlan(),
         ),
       ),
     );
     await tester.pump();
+  }
+
+  testWidgets('session screen shows countdown context in portrait', (
+    tester,
+  ) async {
+    await pumpSession(tester, surfaceSize: const Size(1080, 2400));
 
     expect(find.text('เวลาของท่านี้'), findsOneWidget);
-    expect(find.textContaining('วินาที'), findsOneWidget);
+    expect(find.byIcon(Icons.timer_outlined), findsOneWidget);
+    expect(find.textContaining('วินาทีจะเปลี่ยนท่า'), findsOneWidget);
     expect(find.text('ทำได้ขณะนั่ง'), findsOneWidget);
-    expect(find.text('นาฬิกาทรายของท่านี้'), findsNothing);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('session screen stays stable in landscape', (tester) async {
+    await pumpSession(tester, surfaceSize: const Size(2400, 1080));
+
+    expect(find.text('เวลาของท่านี้'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

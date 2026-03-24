@@ -58,10 +58,11 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compactLayout = constraints.maxHeight < 580;
+            final compactLayout = constraints.maxHeight < 620;
+            final isLandscape = constraints.maxWidth > constraints.maxHeight;
             final bodyPadding = compactLayout ? 16.0 : 20.0;
             final headerGap = compactLayout ? 6.0 : 8.0;
-            final blockGap = compactLayout ? 10.0 : 12.0;
+            final blockGap = compactLayout ? 10.0 : 14.0;
             final actionPadding = compactLayout ? 10.0 : 12.0;
 
             return Padding(
@@ -85,44 +86,37 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
                   const SizedBox(height: 10),
                   Text(exercise.description, style: theme.textTheme.bodyLarge),
                   SizedBox(height: blockGap),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    child: _ExerciseVisualCard(
-                      key: ValueKey<String>(exercise.id),
-                      entry: entry,
-                      compact: compactLayout,
-                    ),
-                  ),
-                  SizedBox(height: blockGap),
                   Expanded(
-                    child: Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(compactLayout ? 20 : 24),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight,
+                    child: isLandscape
+                        ? _LandscapeSessionBody(
+                            compact: compactLayout,
+                            entry: entry,
+                            remainingSeconds: _remainingSeconds,
+                            totalSeconds: exercise.durationSeconds,
+                            requiresStanding: exercise.requiresStanding,
+                          )
+                        : SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 350),
+                                  child: _ExerciseVisualCard(
+                                    key: ValueKey<String>(exercise.id),
+                                    entry: entry,
+                                    compact: compactLayout,
+                                  ),
                                 ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    _SessionCountdownHero(
-                                      remainingSeconds: _remainingSeconds,
-                                      totalSeconds: exercise.durationSeconds,
-                                      requiresStanding:
-                                          exercise.requiresStanding,
-                                      compact: compactLayout,
-                                    ),
-                                  ],
+                                SizedBox(height: blockGap),
+                                _SessionCountdownHero(
+                                  remainingSeconds: _remainingSeconds,
+                                  totalSeconds: exercise.durationSeconds,
+                                  requiresStanding: exercise.requiresStanding,
+                                  compact: compactLayout,
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                              ],
+                            ),
+                          ),
                   ),
                   SizedBox(height: compactLayout ? 16 : 20),
                   Row(
@@ -280,7 +274,58 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
     });
     _beginCurrentExercise();
   }
+}
 
+class _LandscapeSessionBody extends StatelessWidget {
+  const _LandscapeSessionBody({
+    required this.compact,
+    required this.entry,
+    required this.remainingSeconds,
+    required this.totalSeconds,
+    required this.requiresStanding,
+  });
+
+  final bool compact;
+  final PlannedExercise entry;
+  final int remainingSeconds;
+  final int totalSeconds;
+  final bool requiresStanding;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = entry.exercise;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 11,
+          child: SingleChildScrollView(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: _ExerciseVisualCard(
+                key: ValueKey<String>(exercise.id),
+                entry: entry,
+                compact: compact,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 9,
+          child: SingleChildScrollView(
+            child: _SessionCountdownHero(
+              remainingSeconds: remainingSeconds,
+              totalSeconds: totalSeconds,
+              requiresStanding: requiresStanding,
+              compact: compact,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _SessionCountdownHero extends StatelessWidget {
@@ -303,6 +348,9 @@ class _SessionCountdownHero extends StatelessWidget {
     final seconds = remainingSeconds % 60;
     final minutePart = minutes.toString().padLeft(2, '0');
     final secondPart = seconds.toString().padLeft(2, '0');
+    final progress = totalSeconds <= 0
+        ? 0.0
+        : remainingSeconds / totalSeconds;
 
     return Container(
       width: double.infinity,
@@ -312,23 +360,26 @@ class _SessionCountdownHero extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(
-                Icons.hourglass_top_rounded,
+                Icons.timer_outlined,
                 color: const Color(0xFF1A6E46),
                 size: compact ? 18 : 20,
               ),
               const SizedBox(width: 8),
-              Text(
-                'เวลาของท่านี้',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF18472D),
+              Expanded(
+                child: Text(
+                  'เวลาของท่านี้',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF18472D),
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               Text(
                 '$totalSeconds วินาที',
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -349,8 +400,27 @@ class _SessionCountdownHero extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
+            'อีก $remainingSeconds วินาทีจะเปลี่ยนท่า',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF32634A),
+            ),
+          ),
+          SizedBox(height: compact ? 12 : 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: compact ? 8 : 10,
+              backgroundColor: const Color(0xFFDCE8E0),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF1A6E46),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
             requiresStanding ? 'แนะนำให้ลุกขึ้นทำ' : 'ทำได้ขณะนั่ง',
-            textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: const Color(0xFF32634A),
@@ -418,7 +488,8 @@ class _ExerciseVisualCard extends StatelessWidget {
                 ),
               ),
             ),
-          if (exercise.imageAssetPath != null) SizedBox(height: compact ? 8 : 10),
+          if (exercise.imageAssetPath != null)
+            SizedBox(height: compact ? 8 : 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
