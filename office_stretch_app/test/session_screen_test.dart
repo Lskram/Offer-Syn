@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:office_stretch_app/app/app_keys.dart';
 import 'package:office_stretch_app/app/app_state.dart';
 import 'package:office_stretch_app/data/exercise_catalog.dart';
 import 'package:office_stretch_app/models/app_models.dart';
@@ -60,10 +61,19 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('session screen stays stable in landscape', (tester) async {
+  testWidgets('session screen keeps content and actions visible in landscape', (
+    tester,
+  ) async {
     await pumpSession(tester, surfaceSize: const Size(2400, 1080));
 
     expect(find.text('เวลาของท่านี้'), findsOneWidget);
+    expect(find.text('โฟกัสของท่านี้'), findsOneWidget);
+    expect(find.byKey(AppKeys.sessionSkip), findsOneWidget);
+    expect(find.byKey(AppKeys.sessionSnooze), findsOneWidget);
+    expect(find.byKey(AppKeys.sessionComplete), findsOneWidget);
+    expect(find.text('ข้ามท่านี้'), findsOneWidget);
+    expect(find.text('เลื่อน 10 นาที'), findsOneWidget);
+    expect(find.text('ทำครบและไปท่าถัดไป'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -86,10 +96,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('เวลาของท่านี้'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('โฟกัสของท่านี้'), findsOneWidget);
     expect(find.text('เสร็จสิ้นรอบยืดเส้น'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
   testWidgets(
     'session does not auto-complete when rotated near an exercise boundary',
     (tester) async {
@@ -108,7 +119,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
 
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(find.text('เวลาของท่านี้'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

@@ -95,116 +95,160 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
 
             return Padding(
               padding: EdgeInsets.all(bodyPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ท่า ${_exerciseIndex + 1} / ${widget.plan.exercises.length}',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+              child: isLandscape
+                  ? _buildLandscapeLayout(
+                      theme: theme,
+                      entry: entry,
+                      exercise: exercise,
+                      compactLayout: compactLayout,
+                      headerGap: headerGap,
+                      blockGap: blockGap,
+                      actionPadding: actionPadding,
+                    )
+                  : _buildPortraitLayout(
+                      theme: theme,
+                      entry: entry,
+                      exercise: exercise,
+                      compactLayout: compactLayout,
+                      headerGap: headerGap,
+                      blockGap: blockGap,
+                      actionPadding: actionPadding,
                     ),
-                  ),
-                  SizedBox(height: headerGap),
-                  Text(
-                    exercise.name,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(exercise.description, style: theme.textTheme.bodyLarge),
-                  SizedBox(height: blockGap),
-                  Expanded(
-                    child: isLandscape
-                        ? _LandscapeSessionBody(
-                            compact: compactLayout,
-                            entry: entry,
-                            remainingSeconds: _remainingSeconds,
-                            totalSeconds: exercise.durationSeconds,
-                            requiresStanding: exercise.requiresStanding,
-                          )
-                        : SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 350),
-                                  child: _ExerciseVisualCard(
-                                    key: ValueKey<String>(exercise.id),
-                                    entry: entry,
-                                    compact: compactLayout,
-                                  ),
-                                ),
-                                SizedBox(height: blockGap),
-                                _SessionCountdownHero(
-                                  remainingSeconds: _remainingSeconds,
-                                  totalSeconds: exercise.durationSeconds,
-                                  requiresStanding: exercise.requiresStanding,
-                                  compact: compactLayout,
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                  SizedBox(height: compactLayout ? 16 : 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          key: AppKeys.sessionSkip,
-                          onPressed: _isTransitioning
-                              ? null
-                              : () => _advance(ExerciseStatus.skipped),
-                          icon: const Icon(Icons.fast_forward_outlined),
-                          label: Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: actionPadding,
-                            ),
-                            child: const Text('ข้ามท่านี้'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          key: AppKeys.sessionSnooze,
-                          onPressed: _isTransitioning
-                              ? null
-                              : () => _advance(ExerciseStatus.snoozed),
-                          icon: const Icon(Icons.snooze_outlined),
-                          label: Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: actionPadding,
-                            ),
-                            child: const Text('เลื่อน 10 นาที'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: blockGap),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      key: AppKeys.sessionComplete,
-                      onPressed: _isTransitioning
-                          ? null
-                          : () => _advance(ExerciseStatus.done),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: compactLayout ? 12 : 14,
-                        ),
-                        child: const Text('ทำครบและไปท่าถัดไป'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildPortraitLayout({
+    required ThemeData theme,
+    required PlannedExercise entry,
+    required Exercise exercise,
+    required bool compactLayout,
+    required double headerGap,
+    required double blockGap,
+    required double actionPadding,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SessionHeader(
+          exerciseIndex: _exerciseIndex,
+          totalExercises: widget.plan.exercises.length,
+          exercise: exercise,
+          theme: theme,
+          headerGap: headerGap,
+        ),
+        SizedBox(height: blockGap),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  child: _ExerciseVisualCard(
+                    key: ValueKey<String>(exercise.id),
+                    entry: entry,
+                    compact: compactLayout,
+                  ),
+                ),
+                SizedBox(height: blockGap),
+                _SessionCountdownHero(
+                  remainingSeconds: _remainingSeconds,
+                  totalSeconds: exercise.durationSeconds,
+                  requiresStanding: exercise.requiresStanding,
+                  compact: compactLayout,
+                ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(height: compactLayout ? 16 : 20),
+        _SessionActionPanel(
+          compact: compactLayout,
+          blockGap: blockGap,
+          actionPadding: actionPadding,
+          isTransitioning: _isTransitioning,
+          onSkip: () => _advance(ExerciseStatus.skipped),
+          onSnooze: () => _advance(ExerciseStatus.snoozed),
+          onComplete: () => _advance(ExerciseStatus.done),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout({
+    required ThemeData theme,
+    required PlannedExercise entry,
+    required Exercise exercise,
+    required bool compactLayout,
+    required double headerGap,
+    required double blockGap,
+    required double actionPadding,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 11,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SessionHeader(
+                exerciseIndex: _exerciseIndex,
+                totalExercises: widget.plan.exercises.length,
+                exercise: exercise,
+                theme: theme,
+                headerGap: headerGap,
+              ),
+              SizedBox(height: blockGap),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    child: _ExerciseVisualCard(
+                      key: ValueKey<String>(exercise.id),
+                      entry: entry,
+                      compact: compactLayout,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: blockGap + 2),
+        Expanded(
+          flex: 9,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _SessionCountdownHero(
+                    remainingSeconds: _remainingSeconds,
+                    totalSeconds: exercise.durationSeconds,
+                    requiresStanding: exercise.requiresStanding,
+                    compact: compactLayout,
+                  ),
+                ),
+              ),
+              SizedBox(height: blockGap),
+              _SessionActionPanel(
+                compact: compactLayout,
+                blockGap: blockGap,
+                actionPadding: actionPadding,
+                isTransitioning: _isTransitioning,
+                onSkip: () => _advance(ExerciseStatus.skipped),
+                onSnooze: () => _advance(ExerciseStatus.snoozed),
+                onComplete: () => _advance(ExerciseStatus.done),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -360,50 +404,107 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
   }
 }
 
-class _LandscapeSessionBody extends StatelessWidget {
-  const _LandscapeSessionBody({
-    required this.compact,
-    required this.entry,
-    required this.remainingSeconds,
-    required this.totalSeconds,
-    required this.requiresStanding,
+class _SessionHeader extends StatelessWidget {
+  const _SessionHeader({
+    required this.exerciseIndex,
+    required this.totalExercises,
+    required this.exercise,
+    required this.theme,
+    required this.headerGap,
   });
 
-  final bool compact;
-  final PlannedExercise entry;
-  final int remainingSeconds;
-  final int totalSeconds;
-  final bool requiresStanding;
+  final int exerciseIndex;
+  final int totalExercises;
+  final Exercise exercise;
+  final ThemeData theme;
+  final double headerGap;
 
   @override
   Widget build(BuildContext context) {
-    final exercise = entry.exercise;
-
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          flex: 11,
-          child: SingleChildScrollView(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: _ExerciseVisualCard(
-                key: ValueKey<String>(exercise.id),
-                entry: entry,
-                compact: compact,
-              ),
-            ),
+        Text(
+          'ท่า ${exerciseIndex + 1} / $totalExercises',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 9,
-          child: SingleChildScrollView(
-            child: _SessionCountdownHero(
-              remainingSeconds: remainingSeconds,
-              totalSeconds: totalSeconds,
-              requiresStanding: requiresStanding,
-              compact: compact,
+        SizedBox(height: headerGap),
+        Text(
+          exercise.name,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(exercise.description, style: theme.textTheme.bodyLarge),
+      ],
+    );
+  }
+}
+
+class _SessionActionPanel extends StatelessWidget {
+  const _SessionActionPanel({
+    required this.compact,
+    required this.blockGap,
+    required this.actionPadding,
+    required this.isTransitioning,
+    required this.onSkip,
+    required this.onSnooze,
+    required this.onComplete,
+  });
+
+  final bool compact;
+  final double blockGap;
+  final double actionPadding;
+  final bool isTransitioning;
+  final VoidCallback onSkip;
+  final VoidCallback onSnooze;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                key: AppKeys.sessionSkip,
+                onPressed: isTransitioning ? null : onSkip,
+                icon: const Icon(Icons.fast_forward_outlined),
+                label: Padding(
+                  padding: EdgeInsets.symmetric(vertical: actionPadding),
+                  child: const Text('ข้ามท่านี้'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                key: AppKeys.sessionSnooze,
+                onPressed: isTransitioning ? null : onSnooze,
+                icon: const Icon(Icons.snooze_outlined),
+                label: Padding(
+                  padding: EdgeInsets.symmetric(vertical: actionPadding),
+                  child: const Text('เลื่อน 10 นาที'),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: blockGap),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            key: AppKeys.sessionComplete,
+            onPressed: isTransitioning ? null : onComplete,
+            icon: const Icon(Icons.check_circle_outline),
+            label: Padding(
+              padding: EdgeInsets.symmetric(vertical: compact ? 12 : 14),
+              child: const Text('ทำครบและไปท่าถัดไป'),
             ),
           ),
         ),
