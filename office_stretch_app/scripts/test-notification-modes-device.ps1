@@ -298,7 +298,7 @@ function Assert-MarkerMatchesMode {
             }
         }
         'exact' {
-            if (-not $Marker.Exact -or $Marker.FullScreen -or $Marker.Category -ne 'reminder' -or $Marker.HasFullScreenIntent) {
+            if (-not $Marker.Exact -or $Marker.FullScreen -or $Marker.Category -ne 'alarm' -or $Marker.HasFullScreenIntent) {
                 throw "Exact mode marker was invalid: $($Marker | ConvertTo-Json -Compress)"
             }
         }
