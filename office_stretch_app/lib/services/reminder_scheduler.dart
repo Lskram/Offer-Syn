@@ -17,6 +17,28 @@ import 'reminder_timeline.dart';
 
 const _notificationSmallIcon = 'ic_stat_office_relief';
 
+class ReminderNotificationCopy {
+  const ReminderNotificationCopy._();
+
+  static const reminderTitle = 'ถึงเวลาพักยืดเส้น';
+  static const testTitle = 'ทดสอบการแจ้งเตือน OfficeRelief';
+
+  static String reminderBody({
+    required ExercisePlan plan,
+    required ReminderSettings settings,
+  }) {
+    return '${plan.title} • ${plan.exercises.length} ท่า • รอบละ ${settings.intervalMinutes} นาที';
+  }
+
+  static String testBody({required ExercisePlan? plan}) {
+    if (plan == null) {
+      return 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนของแอปทำงานแล้ว';
+    }
+
+    return 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนพร้อมสำหรับโปรแกรม ${plan.title}';
+  }
+}
+
 abstract class ReminderScheduler {
   Stream<String?> get notificationResponses;
 
@@ -451,22 +473,24 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       for (var index = 0; index < schedule.length; index += 1) {
         final scheduledAt = schedule[index];
         await _plugin.zonedSchedule(
-        id: _notificationBaseId + index,
-        title: 'ถึงเวลาพักยืดเส้น',
-        body:
-            '${program.title} • ${program.exercises.length} ท่า • รอบละ ${settings.intervalMinutes} นาที',
-        scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
-        notificationDetails: details,
-        payload: jsonEncode(
-          ReminderLaunchPayload(
-            planId: plan.id,
-            reminderAt: scheduledAt,
-            alertMode: settings.alertMode,
-          ).toJson(),
-        ),
-        androidScheduleMode: usesExactScheduling
-            ? AndroidScheduleMode.exactAllowWhileIdle
-            : AndroidScheduleMode.inexactAllowWhileIdle,
+          id: _notificationBaseId + index,
+          title: ReminderNotificationCopy.reminderTitle,
+          body: ReminderNotificationCopy.reminderBody(
+            plan: program,
+            settings: settings,
+          ),
+          scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
+          notificationDetails: details,
+          payload: jsonEncode(
+            ReminderLaunchPayload(
+              planId: plan.id,
+              reminderAt: scheduledAt,
+              alertMode: settings.alertMode,
+            ).toJson(),
+          ),
+          androidScheduleMode: usesExactScheduling
+              ? AndroidScheduleMode.exactAllowWhileIdle
+              : AndroidScheduleMode.inexactAllowWhileIdle,
         );
       }
 
@@ -488,22 +512,24 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
           for (var index = 0; index < schedule.length; index += 1) {
             final scheduledAt = schedule[index];
             await _plugin.zonedSchedule(
-            id: _notificationBaseId + index,
-            title: 'เธ–เธถเธเน€เธงเธฅเธฒเธเธฑเธเธขเธทเธ”เน€เธชเนเธ',
-            body:
-                '${program.title} โ€ข ${program.exercises.length} เธ—เนเธฒ โ€ข เธฃเธญเธเธฅเธฐ ${settings.intervalMinutes} เธเธฒเธ—เธต',
-            scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
-            notificationDetails: fallbackDetails,
-            payload: jsonEncode(
-              ReminderLaunchPayload(
-                planId: plan.id,
-                reminderAt: scheduledAt,
-                alertMode: settings.alertMode,
-              ).toJson(),
-            ),
-            androidScheduleMode: usesExactScheduling
-                ? AndroidScheduleMode.exactAllowWhileIdle
-                : AndroidScheduleMode.inexactAllowWhileIdle,
+              id: _notificationBaseId + index,
+              title: ReminderNotificationCopy.reminderTitle,
+              body: ReminderNotificationCopy.reminderBody(
+                plan: program,
+                settings: settings,
+              ),
+              scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
+              notificationDetails: fallbackDetails,
+              payload: jsonEncode(
+                ReminderLaunchPayload(
+                  planId: plan.id,
+                  reminderAt: scheduledAt,
+                  alertMode: settings.alertMode,
+                ).toJson(),
+              ),
+              androidScheduleMode: usesExactScheduling
+                  ? AndroidScheduleMode.exactAllowWhileIdle
+                  : AndroidScheduleMode.inexactAllowWhileIdle,
             );
           }
 
@@ -578,19 +604,17 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
 
     try {
       await _plugin.show(
-      id: _testNotificationId,
-      title: 'ทดสอบการแจ้งเตือน OfficeRelief',
-      body: program == null
-          ? 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนของแอปทำงานแล้ว'
-          : 'หากเห็นข้อความนี้ แปลว่าระบบแจ้งเตือนพร้อมสำหรับโปรแกรม ${program.title}',
-      notificationDetails: details,
-      payload: jsonEncode(
-        ReminderLaunchPayload(
-          planId: program?.id,
-          alertMode: settings.alertMode,
-          isTest: true,
-        ).toJson(),
-      ),
+        id: _testNotificationId,
+        title: ReminderNotificationCopy.testTitle,
+        body: ReminderNotificationCopy.testBody(plan: program),
+        notificationDetails: details,
+        payload: jsonEncode(
+          ReminderLaunchPayload(
+            planId: program?.id,
+            alertMode: settings.alertMode,
+            isTest: true,
+          ).toJson(),
+        ),
       );
     } catch (error) {
       if (!_isInvalidNotificationIconError(error)) {
@@ -608,10 +632,8 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       );
       await _plugin.show(
         id: _testNotificationId,
-        title: 'OfficeRelief test notification',
-        body: program == null
-            ? 'If you can see this notification, the reminder system is working.'
-            : 'If you can see this notification, reminders are ready for ${program.title}.',
+        title: ReminderNotificationCopy.testTitle,
+        body: ReminderNotificationCopy.testBody(plan: program),
         notificationDetails: fallbackDetails,
         payload: jsonEncode(
           ReminderLaunchPayload(
