@@ -31,6 +31,7 @@ class TestReminderScheduler implements ReminderScheduler {
   final int maxEntries;
   String? _pendingPayload;
   SystemTimeChangeSignal? _pendingSystemTimeChange;
+  int clearDeliveredNotificationsCallCount = 0;
 
   @override
   Stream<String?> get notificationResponses => const Stream<String?>.empty();
@@ -48,7 +49,9 @@ class TestReminderScheduler implements ReminderScheduler {
   }
 
   @override
-  Future<void> clearDeliveredNotifications() async {}
+  Future<void> clearDeliveredNotifications() async {
+    clearDeliveredNotificationsCallCount += 1;
+  }
 
   @override
   Future<SystemTimeChangeSignal?> takePendingSystemTimeChange() async {
@@ -257,6 +260,41 @@ void main() {
       expect(state.nextReminderAt, DateTime(2026, 3, 18, 11));
     },
   );
+
+  test('initialize clears delivered reminder notifications before syncing', () async {
+    final scheduler = TestReminderScheduler(() => DateTime(2026, 3, 18, 8, 5));
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => DateTime(2026, 3, 18, 8, 5),
+    );
+
+    await state.initialize();
+
+    expect(scheduler.clearDeliveredNotificationsCallCount, 1);
+  });
+
+  test('resume clears delivered reminder notifications before syncing', () async {
+    var now = DateTime(2026, 3, 18, 8, 5);
+    final scheduler = TestReminderScheduler(() => now);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => now,
+    );
+
+    await state.initialize();
+    expect(scheduler.clearDeliveredNotificationsCallCount, 1);
+
+    state.completeQuestionnaire(buildProfile());
+    await state.settleSideEffects();
+
+    now = DateTime(2026, 3, 18, 9, 5);
+    state.handleAppResumed();
+    await state.settleSideEffects();
+
+    expect(scheduler.clearDeliveredNotificationsCallCount, 2);
+  });
 
   test(
     'does not mark reminders missed when scheduler cannot confirm pending requests',

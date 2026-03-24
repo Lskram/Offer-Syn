@@ -63,6 +63,10 @@ abstract class BaseFlutterActivity : FlutterActivity() {
                     result.success(getActiveNotifications())
                 }
 
+                "clearActiveNotifications" -> {
+                    result.success(clearActiveNotifications())
+                }
+
                 "takePendingTimeChangeSignal" -> {
                     result.success(ReminderTimeChangeStore.consume(this))
                 }
@@ -336,6 +340,30 @@ abstract class BaseFlutterActivity : FlutterActivity() {
                     "text" to notification.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
                 )
             }
+    }
+
+    private fun clearActiveNotifications(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return 0
+        }
+
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return 0
+
+        var clearedCount = 0
+        notificationManager.activeNotifications
+            .filter { it.packageName == packageName }
+            .forEach { statusBarNotification ->
+                val tag = statusBarNotification.tag
+                if (tag == null) {
+                    notificationManager.cancel(statusBarNotification.id)
+                } else {
+                    notificationManager.cancel(tag, statusBarNotification.id)
+                }
+                clearedCount += 1
+            }
+
+        return clearedCount
     }
 
     private fun pickNotificationSound(existingUri: String?, result: MethodChannel.Result) {

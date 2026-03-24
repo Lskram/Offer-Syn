@@ -108,6 +108,7 @@ class AppState extends ChangeNotifier {
     if (!didObserveSystemTimeChange) {
       _reconcileMissedReminders(now: _now());
     }
+    await _reminderScheduler.clearDeliveredNotifications();
     await _refreshReminderDiagnostics(notify: false);
     await _syncAndPersistNow();
     notifyListeners();
@@ -222,6 +223,7 @@ class AppState extends ChangeNotifier {
           if (!didObserveSystemTimeChange) {
             _reconcileMissedReminders(now: _now());
           }
+          await _reminderScheduler.clearDeliveredNotifications();
           notifyListeners();
           await _syncReminders();
           await _persistence.save(_buildSnapshot());

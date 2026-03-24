@@ -255,6 +255,15 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
 
   @override
   Future<void> clearDeliveredNotifications() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await _settingsChannel.invokeMethod<void>('clearActiveNotifications');
+        return;
+      } catch (error) {
+        debugPrint('Failed to clear active notifications natively: $error');
+      }
+    }
+
     final activeIds = await _readManagedActiveNotificationIds();
     for (final notificationId in activeIds) {
       await _plugin.cancel(id: notificationId);
