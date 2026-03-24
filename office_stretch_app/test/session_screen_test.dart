@@ -67,4 +67,27 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('session screen remains active after rotating to landscape', (
+    tester,
+  ) async {
+    await pumpSession(tester, surfaceSize: const Size(1080, 2400));
+
+    expect(find.text('เวลาของท่านี้'), findsOneWidget);
+    expect(find.text('เสร็จสิ้นรอบยืดเส้น'), findsNothing);
+
+    tester.view.physicalSize = const Size(2400, 1080);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('เวลาของท่านี้'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('เสร็จสิ้นรอบยืดเส้น'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

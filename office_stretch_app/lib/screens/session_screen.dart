@@ -23,8 +23,11 @@ class ExerciseSessionScreen extends StatefulWidget {
   State<ExerciseSessionScreen> createState() => _ExerciseSessionScreenState();
 }
 
-class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
+class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
+    with WidgetsBindingObserver {
   Timer? _ticker;
+  Timer? _metricsRecoveryTimer;
+  int _tickerGeneration = 0;
   int _exerciseIndex = 0;
   int _remainingSeconds = 0;
   int _completedCount = 0;
@@ -37,13 +40,37 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _beginCurrentExercise();
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _metricsRecoveryTimer?.cancel();
+    _invalidateTicker();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    _recoverTickerAfterEnvironmentChange();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _recoverTickerAfterEnvironmentChange();
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _invalidateTicker();
+    }
   }
 
   @override
@@ -181,11 +208,21 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
   }
 
   void _beginCurrentExercise() {
-    _ticker?.cancel();
+    _invalidateTicker();
     setState(() {
       _remainingSeconds = _currentExercise.durationSeconds;
     });
+    _startTicker();
+  }
+
+  void _startTicker() {
+    _metricsRecoveryTimer?.cancel();
+    final tickerGeneration = ++_tickerGeneration;
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (tickerGeneration != _tickerGeneration) {
+        timer.cancel();
+        return;
+      }
       if (!mounted) {
         timer.cancel();
         return;
@@ -201,12 +238,33 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
     });
   }
 
+  void _invalidateTicker() {
+    _tickerGeneration += 1;
+    _ticker?.cancel();
+    _ticker = null;
+  }
+
+  void _recoverTickerAfterEnvironmentChange() {
+    _metricsRecoveryTimer?.cancel();
+    _invalidateTicker();
+    if (_isTransitioning || _remainingSeconds <= 0 || !mounted) {
+      return;
+    }
+
+    _metricsRecoveryTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _isTransitioning || _remainingSeconds <= 0) {
+        return;
+      }
+      _startTicker();
+    });
+  }
+
   Future<void> _advance(ExerciseStatus status) async {
     if (_isTransitioning) {
       return;
     }
     _isTransitioning = true;
-    _ticker?.cancel();
+    _invalidateTicker();
 
     final exercise = _currentExercise;
     widget.appState.logExercise(
@@ -240,17 +298,23 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen> {
         builder: (context) {
           return AlertDialog(
             title: const Text('เสร็จสิ้นรอบยืดเส้น'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const OfficeReliefCompleteState(size: 148),
-                const SizedBox(height: 16),
-                Text(
-                  'ทำครบ $_completedCount ท่า'
-                  '${_skippedCount > 0 ? ' และข้าม $_skippedCount ท่า' : ''}',
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const OfficeReliefCompleteState(size: 120),
+                  const SizedBox(height: 16),
+                  Text(
+                    'ทำครบ $_completedCount ท่า'
+                    '${_skippedCount > 0 ? ' และข้าม $_skippedCount ท่า' : ''}',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
