@@ -32,6 +32,7 @@ class TestReminderScheduler implements ReminderScheduler {
   String? _pendingPayload;
   SystemTimeChangeSignal? _pendingSystemTimeChange;
   int clearDeliveredNotificationsCallCount = 0;
+  int syncCallCount = 0;
 
   @override
   Stream<String?> get notificationResponses => const Stream<String?>.empty();
@@ -97,6 +98,7 @@ class TestReminderScheduler implements ReminderScheduler {
     required DateTime requestedStartAt,
     required ExercisePlan? plan,
   }) async {
+    syncCallCount += 1;
     if (!settings.notificationsEnabled || plan == null) {
       return const ReminderSyncState.empty();
     }
@@ -261,40 +263,48 @@ void main() {
     },
   );
 
-  test('initialize clears delivered reminder notifications before syncing', () async {
-    final scheduler = TestReminderScheduler(() => DateTime(2026, 3, 18, 8, 5));
-    final state = AppState(
-      persistence: InMemoryAppPersistence(),
-      reminderScheduler: scheduler,
-      now: () => DateTime(2026, 3, 18, 8, 5),
-    );
+  test(
+    'initialize clears delivered reminder notifications before syncing',
+    () async {
+      final scheduler = TestReminderScheduler(
+        () => DateTime(2026, 3, 18, 8, 5),
+      );
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: scheduler,
+        now: () => DateTime(2026, 3, 18, 8, 5),
+      );
 
-    await state.initialize();
+      await state.initialize();
 
-    expect(scheduler.clearDeliveredNotificationsCallCount, 1);
-  });
+      expect(scheduler.clearDeliveredNotificationsCallCount, 1);
+    },
+  );
 
-  test('resume clears delivered reminder notifications before syncing', () async {
-    var now = DateTime(2026, 3, 18, 8, 5);
-    final scheduler = TestReminderScheduler(() => now);
-    final state = AppState(
-      persistence: InMemoryAppPersistence(),
-      reminderScheduler: scheduler,
-      now: () => now,
-    );
+  test(
+    'resume clears delivered reminder notifications before syncing',
+    () async {
+      var now = DateTime(2026, 3, 18, 8, 5);
+      final scheduler = TestReminderScheduler(() => now);
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: scheduler,
+        now: () => now,
+      );
 
-    await state.initialize();
-    expect(scheduler.clearDeliveredNotificationsCallCount, 1);
+      await state.initialize();
+      expect(scheduler.clearDeliveredNotificationsCallCount, 1);
 
-    state.completeQuestionnaire(buildProfile());
-    await state.settleSideEffects();
+      state.completeQuestionnaire(buildProfile());
+      await state.settleSideEffects();
 
-    now = DateTime(2026, 3, 18, 9, 5);
-    state.handleAppResumed();
-    await state.settleSideEffects();
+      now = DateTime(2026, 3, 18, 9, 5);
+      state.handleAppResumed();
+      await state.settleSideEffects();
 
-    expect(scheduler.clearDeliveredNotificationsCallCount, 2);
-  });
+      expect(scheduler.clearDeliveredNotificationsCallCount, 2);
+    },
+  );
 
   test(
     'does not mark reminders missed when scheduler cannot confirm pending requests',
@@ -326,45 +336,48 @@ void main() {
     },
   );
 
-  test('savePlan updates the active plan and reminder schedule together', () async {
-    final now = DateTime(2026, 3, 18, 8, 5);
-    final state = AppState(
-      persistence: InMemoryAppPersistence(),
-      reminderScheduler: TestReminderScheduler(() => now),
-      now: () => now,
-    );
+  test(
+    'savePlan updates the active plan and reminder schedule together',
+    () async {
+      final now = DateTime(2026, 3, 18, 8, 5);
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: TestReminderScheduler(() => now),
+        now: () => now,
+      );
 
-    await state.initialize();
-    state.savePlan(
-      profile: const UserProfile(
-        painSelections: [
-          PainSelection(
-            area: PainArea.neckShoulders,
-            level: PainLevel.high,
-            selectedExerciseIds: <String>[],
-          ),
-          PainSelection(
-            area: PainArea.upperBack,
-            level: PainLevel.low,
-            selectedExerciseIds: <String>[],
-          ),
-        ],
-        workHours: WorkHours.moreThanNine,
-        stretchHabit: StretchHabit.never,
-      ),
-      intervalMinutes: 30,
-      activeStart: const TimeOfDay(hour: 18, minute: 0),
-      activeEnd: const TimeOfDay(hour: 23, minute: 59),
-    );
-    await state.settleSideEffects();
+      await state.initialize();
+      state.savePlan(
+        profile: const UserProfile(
+          painSelections: [
+            PainSelection(
+              area: PainArea.neckShoulders,
+              level: PainLevel.high,
+              selectedExerciseIds: <String>[],
+            ),
+            PainSelection(
+              area: PainArea.upperBack,
+              level: PainLevel.low,
+              selectedExerciseIds: <String>[],
+            ),
+          ],
+          workHours: WorkHours.moreThanNine,
+          stretchHabit: StretchHabit.never,
+        ),
+        intervalMinutes: 30,
+        activeStart: const TimeOfDay(hour: 18, minute: 0),
+        activeEnd: const TimeOfDay(hour: 23, minute: 59),
+      );
+      await state.settleSideEffects();
 
-    expect(state.activePlan?.groups, hasLength(2));
-    expect(state.activePlan?.exerciseCount, 3);
-    expect(state.settings.intervalMinutes, 30);
-    expect(state.settings.activeStart, const TimeOfDay(hour: 18, minute: 0));
-    expect(state.settings.activeEnd, const TimeOfDay(hour: 23, minute: 59));
-    expect(state.nextReminderAt, DateTime(2026, 3, 18, 18));
-  });
+      expect(state.activePlan?.groups, hasLength(2));
+      expect(state.activePlan?.exerciseCount, 3);
+      expect(state.settings.intervalMinutes, 30);
+      expect(state.settings.activeStart, const TimeOfDay(hour: 18, minute: 0));
+      expect(state.settings.activeEnd, const TimeOfDay(hour: 23, minute: 59));
+      expect(state.nextReminderAt, DateTime(2026, 3, 18, 18));
+    },
+  );
 
   test('repairs an empty reminder queue automatically after sync', () async {
     final now = DateTime(2026, 3, 18, 8, 5);
@@ -387,20 +400,23 @@ void main() {
     expect(state.nextReminderAt, isNotNull);
   });
 
-  test('updateAlertMode persists the selected reminder delivery mode', () async {
-    final now = DateTime(2026, 3, 18, 8, 5);
-    final state = AppState(
-      persistence: InMemoryAppPersistence(),
-      reminderScheduler: TestReminderScheduler(() => now),
-      now: () => now,
-    );
+  test(
+    'updateAlertMode persists the selected reminder delivery mode',
+    () async {
+      final now = DateTime(2026, 3, 18, 8, 5);
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: TestReminderScheduler(() => now),
+        now: () => now,
+      );
 
-    await state.initialize();
-    state.updateAlertMode(AlertMode.exactFullScreen);
-    await state.settleSideEffects();
+      await state.initialize();
+      state.updateAlertMode(AlertMode.exactFullScreen);
+      await state.settleSideEffects();
 
-    expect(state.settings.alertMode, AlertMode.exactFullScreen);
-  });
+      expect(state.settings.alertMode, AlertMode.exactFullScreen);
+    },
+  );
 
   test('initial reminder payload becomes a pending alarm launch', () async {
     final now = DateTime(2026, 3, 18, 8, 5);
@@ -443,123 +459,168 @@ void main() {
     expect(launch.reminderAt, DateTime(2026, 3, 18, 9));
   });
 
-  test('staging a native reminder payload produces a pending alarm launch', () async {
-    final now = DateTime(2026, 3, 18, 8, 5);
-    final profile = buildProfile();
-    final plan = ExerciseCatalog.buildPlan(profile);
-    final persistence = InMemoryAppPersistence();
-    await persistence.save(
-      PersistedAppData(
-        profile: profile,
-        settings: defaultReminderSettings.copyWith(
-          alertMode: AlertMode.exactFullScreen,
+  test(
+    'staging a native reminder payload produces a pending alarm launch',
+    () async {
+      final now = DateTime(2026, 3, 18, 8, 5);
+      final profile = buildProfile();
+      final plan = ExerciseCatalog.buildPlan(profile);
+      final persistence = InMemoryAppPersistence();
+      await persistence.save(
+        PersistedAppData(
+          profile: profile,
+          settings: defaultReminderSettings.copyWith(
+            alertMode: AlertMode.exactFullScreen,
+          ),
+          logs: const <ExerciseLog>[],
+          nextReminderAt: DateTime(2026, 3, 18, 9),
         ),
-        logs: const <ExerciseLog>[],
-        nextReminderAt: DateTime(2026, 3, 18, 9),
-      ),
-    );
+      );
 
-    final state = AppState(
-      persistence: persistence,
-      reminderScheduler: TestReminderScheduler(() => now),
-      now: () => now,
-    );
+      final state = AppState(
+        persistence: persistence,
+        reminderScheduler: TestReminderScheduler(() => now),
+        now: () => now,
+      );
 
-    await state.initialize();
-    state.stageReminderLaunchPayload(
-      jsonEncode(
-        ReminderLaunchPayload(
-          planId: plan.id,
+      await state.initialize();
+      state.stageReminderLaunchPayload(
+        jsonEncode(
+          ReminderLaunchPayload(
+            planId: plan.id,
+            reminderAt: DateTime(2026, 3, 18, 9),
+            alertMode: AlertMode.exactFullScreen,
+          ).toJson(),
+        ),
+      );
+
+      final launch = state.consumePendingReminderLaunch();
+      expect(launch, isNotNull);
+      expect(launch!.plan.id, plan.id);
+      expect(launch.opensAlarmScreen, isTrue);
+      expect(launch.reminderAt, DateTime(2026, 3, 18, 9));
+    },
+  );
+
+  test(
+    'dismissed reminders are not later marked missed for the same slot',
+    () async {
+      var now = DateTime(2026, 3, 18, 8, 5);
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: TestReminderScheduler(() => now),
+        now: () => now,
+      );
+
+      await state.initialize();
+      state.completeQuestionnaire(buildProfile());
+      await state.settleSideEffects();
+
+      now = DateTime(2026, 3, 18, 9, 5);
+      state.dismissPendingReminder(
+        PendingReminderLaunch(
+          plan: state.activePlan!,
+          alertMode: AlertMode.exactFullScreen,
           reminderAt: DateTime(2026, 3, 18, 9),
-          alertMode: AlertMode.exactFullScreen,
-        ).toJson(),
-      ),
-    );
-
-    final launch = state.consumePendingReminderLaunch();
-    expect(launch, isNotNull);
-    expect(launch!.plan.id, plan.id);
-    expect(launch.opensAlarmScreen, isTrue);
-    expect(launch.reminderAt, DateTime(2026, 3, 18, 9));
-  });
-
-  test('dismissed reminders are not later marked missed for the same slot', () async {
-    var now = DateTime(2026, 3, 18, 8, 5);
-    final state = AppState(
-      persistence: InMemoryAppPersistence(),
-      reminderScheduler: TestReminderScheduler(() => now),
-      now: () => now,
-    );
-
-    await state.initialize();
-    state.completeQuestionnaire(buildProfile());
-    await state.settleSideEffects();
-
-    now = DateTime(2026, 3, 18, 9, 5);
-    state.dismissPendingReminder(
-      PendingReminderLaunch(
-        plan: state.activePlan!,
-        alertMode: AlertMode.exactFullScreen,
-        reminderAt: DateTime(2026, 3, 18, 9),
-      ),
-    );
-    await state.settleSideEffects();
-
-    now = DateTime(2026, 3, 18, 11, 5);
-    state.handleAppResumed();
-    await state.settleSideEffects();
-
-    expect(
-      state.logs.any(
-        (log) =>
-            log.status == ExerciseStatus.skipped &&
-            log.reminderAt == DateTime(2026, 3, 18, 9),
-      ),
-      isTrue,
-    );
-    expect(
-      state.logs.any(
-        (log) =>
-            log.status == ExerciseStatus.missed &&
-            log.reminderAt == DateTime(2026, 3, 18, 9),
-      ),
-      isFalse,
-    );
-  });
-
-  test('initialize recalculates reminders after a pending system time change', () async {
-    final now = DateTime(2026, 3, 18, 8, 5);
-    final profile = buildProfile();
-    final persistence = InMemoryAppPersistence();
-    await persistence.save(
-      PersistedAppData(
-        profile: profile,
-        settings: defaultReminderSettings,
-        logs: const <ExerciseLog>[],
-        nextReminderAt: DateTime(2026, 3, 18, 12),
-      ),
-    );
-
-    final state = AppState(
-      persistence: persistence,
-      reminderScheduler: TestReminderScheduler(
-        () => now,
-        pendingSystemTimeChange: SystemTimeChangeSignal(
-          action: 'android.intent.action.TIME_SET',
-          observedAt: now,
-          timeZoneId: 'Asia/Bangkok',
-          systemTime: now,
         ),
-      ),
-      now: () => now,
-    );
+      );
+      await state.settleSideEffects();
 
-    await state.initialize();
+      now = DateTime(2026, 3, 18, 11, 5);
+      state.handleAppResumed();
+      await state.settleSideEffects();
 
-    expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
-  });
+      expect(
+        state.logs.any(
+          (log) =>
+              log.status == ExerciseStatus.skipped &&
+              log.reminderAt == DateTime(2026, 3, 18, 9),
+        ),
+        isTrue,
+      );
+      expect(
+        state.logs.any(
+          (log) =>
+              log.status == ExerciseStatus.missed &&
+              log.reminderAt == DateTime(2026, 3, 18, 9),
+        ),
+        isFalse,
+      );
+    },
+  );
 
-  test('resume recalculates reminders after a pending system time change', () async {
+  test(
+    'initialize recalculates reminders after a pending system time change',
+    () async {
+      final now = DateTime(2026, 3, 18, 8, 5);
+      final profile = buildProfile();
+      final persistence = InMemoryAppPersistence();
+      await persistence.save(
+        PersistedAppData(
+          profile: profile,
+          settings: defaultReminderSettings,
+          logs: const <ExerciseLog>[],
+          nextReminderAt: DateTime(2026, 3, 18, 12),
+        ),
+      );
+
+      final state = AppState(
+        persistence: persistence,
+        reminderScheduler: TestReminderScheduler(
+          () => now,
+          pendingSystemTimeChange: SystemTimeChangeSignal(
+            action: 'android.intent.action.TIME_SET',
+            observedAt: now,
+            timeZoneId: 'Asia/Bangkok',
+            systemTime: now,
+          ),
+        ),
+        now: () => now,
+      );
+
+      await state.initialize();
+
+      expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
+    },
+  );
+
+  test(
+    'resume recalculates reminders after a pending system time change',
+    () async {
+      var now = DateTime(2026, 3, 18, 8, 5);
+      final scheduler = TestReminderScheduler(() => now);
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: scheduler,
+        now: () => now,
+      );
+
+      await state.initialize();
+      state.completeQuestionnaire(buildProfile());
+      await state.settleSideEffects();
+
+      expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
+
+      state.snoozeReminder(240);
+      await state.settleSideEffects();
+      expect(state.nextReminderAt, DateTime(2026, 3, 18, 12, 5));
+
+      now = DateTime(2026, 3, 18, 8, 25);
+      scheduler
+        .._pendingSystemTimeChange = SystemTimeChangeSignal(
+          action: 'android.intent.action.TIMEZONE_CHANGED',
+          observedAt: now,
+          timeZoneId: 'Asia/Tokyo',
+          systemTime: now,
+        );
+      state.handleAppResumed();
+      await state.settleSideEffects();
+
+      expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
+    },
+  );
+
+  test('live time change signal resyncs reminders immediately', () async {
     var now = DateTime(2026, 3, 18, 8, 5);
     final scheduler = TestReminderScheduler(() => now);
     final state = AppState(
@@ -572,23 +633,51 @@ void main() {
     state.completeQuestionnaire(buildProfile());
     await state.settleSideEffects();
 
-    expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
-
     state.snoozeReminder(240);
     await state.settleSideEffects();
     expect(state.nextReminderAt, DateTime(2026, 3, 18, 12, 5));
 
     now = DateTime(2026, 3, 18, 8, 25);
-    scheduler
-      .._pendingSystemTimeChange = SystemTimeChangeSignal(
-        action: 'android.intent.action.TIMEZONE_CHANGED',
+    state.handleSystemTimeChangeSignal(
+      SystemTimeChangeSignal(
+        action: 'android.intent.action.TIME_SET',
         observedAt: now,
-        timeZoneId: 'Asia/Tokyo',
+        timeZoneId: 'Asia/Bangkok',
         systemTime: now,
-      );
-    state.handleAppResumed();
+      ),
+    );
     await state.settleSideEffects();
 
     expect(state.nextReminderAt, DateTime(2026, 3, 18, 9));
+  });
+
+  test('duplicate live time change signal is ignored', () async {
+    var now = DateTime(2026, 3, 18, 8, 5);
+    final scheduler = TestReminderScheduler(() => now);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => now,
+    );
+
+    await state.initialize();
+    state.completeQuestionnaire(buildProfile());
+    await state.settleSideEffects();
+
+    final signal = SystemTimeChangeSignal(
+      action: 'android.intent.action.TIME_SET',
+      observedAt: DateTime(2026, 3, 18, 8, 25),
+      timeZoneId: 'Asia/Bangkok',
+      systemTime: DateTime(2026, 3, 18, 8, 25),
+    );
+
+    final baselineSyncCalls = scheduler.syncCallCount;
+    state.handleSystemTimeChangeSignal(signal);
+    await state.settleSideEffects();
+    expect(scheduler.syncCallCount, baselineSyncCalls + 1);
+
+    state.handleSystemTimeChangeSignal(signal);
+    await state.settleSideEffects();
+    expect(scheduler.syncCallCount, baselineSyncCalls + 1);
   });
 }

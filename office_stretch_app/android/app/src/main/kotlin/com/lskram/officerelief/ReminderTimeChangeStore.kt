@@ -25,18 +25,24 @@ object ReminderTimeChangeStore {
 
     fun consume(context: Context): Map<String, Any?>? {
         val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
-        if (!preferences.getBoolean(pendingKey, false)) {
-            return null
-        }
+        val payload = readPayload(preferences) ?: return null
 
-        val payload =
-            mapOf(
-                "action" to preferences.getString(actionKey, null),
-                "observedAtMillis" to preferences.getLong(observedAtKey, System.currentTimeMillis()),
-                "timeZoneId" to preferences.getString(timeZoneIdKey, null),
-                "systemTimeMillis" to preferences.getLong(systemTimeKey, System.currentTimeMillis()),
-            )
+        clear(preferences)
 
+        return payload
+    }
+
+    fun peek(context: Context): Map<String, Any?>? {
+        val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+        return readPayload(preferences)
+    }
+
+    fun clear(context: Context) {
+        val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+        clear(preferences)
+    }
+
+    private fun clear(preferences: android.content.SharedPreferences) {
         preferences
             .edit()
             .remove(pendingKey)
@@ -45,7 +51,20 @@ object ReminderTimeChangeStore {
             .remove(timeZoneIdKey)
             .remove(systemTimeKey)
             .apply()
+    }
 
-        return payload
+    private fun readPayload(
+        preferences: android.content.SharedPreferences,
+    ): Map<String, Any?>? {
+        if (!preferences.getBoolean(pendingKey, false)) {
+            return null
+        }
+
+        return mapOf(
+            "action" to preferences.getString(actionKey, null),
+            "observedAtMillis" to preferences.getLong(observedAtKey, System.currentTimeMillis()),
+            "timeZoneId" to preferences.getString(timeZoneIdKey, null),
+            "systemTimeMillis" to preferences.getLong(systemTimeKey, System.currentTimeMillis()),
+        )
     }
 }

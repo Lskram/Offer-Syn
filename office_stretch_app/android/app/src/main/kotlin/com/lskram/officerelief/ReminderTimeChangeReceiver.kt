@@ -5,10 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin
+import java.util.TimeZone
 
 class ReminderTimeChangeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        Log.i(
+            "ReminderTimeChangeRx",
+            "Received action=${intent?.action ?: "unknown"} zone=${TimeZone.getDefault().id}",
+        )
         ReminderTimeChangeStore.markPending(context, intent?.action)
+        ReminderTimeChangeStore.peek(context)?.let(SystemEventBridge::enqueue)
+        Log.i("ReminderTimeChangeRx", "Stored pending time-change signal for Flutter recovery.")
         reschedulePluginNotifications(context)
     }
 
@@ -21,6 +28,10 @@ class ReminderTimeChangeReceiver : BroadcastReceiver() {
                 )
             method.isAccessible = true
             method.invoke(null, context)
+            Log.i(
+                "ReminderTimeChangeRx",
+                "Rescheduled plugin notifications after system time change.",
+            )
         } catch (error: Throwable) {
             Log.w(
                 "ReminderTimeChangeRx",

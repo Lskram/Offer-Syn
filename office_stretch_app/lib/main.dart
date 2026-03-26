@@ -7,6 +7,7 @@ import 'services/app_persistence.dart';
 import 'services/app_launch_bridge.dart';
 import 'services/device_automation.dart';
 import 'services/reminder_scheduler.dart';
+import 'services/system_event_bridge.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,7 @@ Future<void> main() async {
   );
   await appState.initialize();
   await initializeAppLaunchBridge(appState);
+  await initializeSystemEventBridge(appState);
   await runPendingDeviceAutomation(appState);
 
   runApp(OfficeStretchApp(appState: appState));

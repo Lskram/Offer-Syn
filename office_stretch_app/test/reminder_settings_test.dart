@@ -40,4 +40,25 @@ void main() {
     expect(updated.vibrationEnabled, isTrue);
     expect(updated.vibrationLevel, VibrationLevel.strong);
   });
+
+  test('reminder launch payload keeps alarm sound metadata', () {
+    final payload = ReminderLaunchPayload(
+      planId: 'main-plan',
+      alertMode: AlertMode.exactFullScreen,
+      soundEnabled: true,
+      notificationSoundUri: 'content://settings/system/notification_sound',
+      vibrationEnabled: true,
+      vibrationLevel: VibrationLevel.medium,
+    );
+
+    final decoded = ReminderLaunchPayload.fromJson(payload.toJson());
+
+    expect(decoded.soundEnabled, isTrue);
+    expect(
+      decoded.notificationSoundUri,
+      'content://settings/system/notification_sound',
+    );
+    expect(decoded.vibrationEnabled, isTrue);
+    expect(decoded.vibrationLevel, VibrationLevel.medium);
+  });
 }

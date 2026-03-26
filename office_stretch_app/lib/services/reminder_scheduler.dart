@@ -274,7 +274,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       ignoresBatteryOptimizations: ignoresBatteryOptimizations,
       exactAlarmsEnabled: exactAlarmsEnabled,
       fullScreenIntentEnabled: fullScreenIntentEnabled,
-      );
+    );
   }
 
   @override
@@ -462,16 +462,17 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       );
     }
     final channelId = _resolveChannelId(settings);
-    final details = _buildNotificationDetails(
-      settings: settings,
-      channelId: channelId,
-      usesFullScreenIntent: usesFullScreenIntent,
-    );
     await _plugin.cancel(id: _testNotificationId);
 
     try {
       for (var index = 0; index < schedule.length; index += 1) {
         final scheduledAt = schedule[index];
+        final details = _buildNotificationDetails(
+          settings: settings,
+          channelId: channelId,
+          usesFullScreenIntent: usesFullScreenIntent,
+          shownAt: scheduledAt,
+        );
         await _plugin.zonedSchedule(
           id: _notificationBaseId + index,
           title: ReminderNotificationCopy.reminderTitle,
@@ -481,12 +482,10 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
           ),
           scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
           notificationDetails: details,
-          payload: jsonEncode(
-            ReminderLaunchPayload(
-              planId: plan.id,
-              reminderAt: scheduledAt,
-              alertMode: settings.alertMode,
-            ).toJson(),
+          payload: _encodeReminderPayload(
+            planId: plan.id,
+            settings: settings,
+            reminderAt: scheduledAt,
           ),
           androidScheduleMode: usesExactScheduling
               ? AndroidScheduleMode.exactAllowWhileIdle
@@ -503,14 +502,15 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         );
         try {
           await _cancelManagedNotifications();
-          final fallbackDetails = _buildNotificationDetails(
-            settings: settings,
-            channelId: channelId,
-            usesFullScreenIntent: usesFullScreenIntent,
-            icon: null,
-          );
           for (var index = 0; index < schedule.length; index += 1) {
             final scheduledAt = schedule[index];
+            final fallbackDetails = _buildNotificationDetails(
+              settings: settings,
+              channelId: channelId,
+              usesFullScreenIntent: usesFullScreenIntent,
+              icon: null,
+              shownAt: scheduledAt,
+            );
             await _plugin.zonedSchedule(
               id: _notificationBaseId + index,
               title: ReminderNotificationCopy.reminderTitle,
@@ -520,12 +520,10 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
               ),
               scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
               notificationDetails: fallbackDetails,
-              payload: jsonEncode(
-                ReminderLaunchPayload(
-                  planId: plan.id,
-                  reminderAt: scheduledAt,
-                  alertMode: settings.alertMode,
-                ).toJson(),
+              payload: _encodeReminderPayload(
+                planId: plan.id,
+                settings: settings,
+                reminderAt: scheduledAt,
               ),
               androidScheduleMode: usesExactScheduling
                   ? AndroidScheduleMode.exactAllowWhileIdle
@@ -600,6 +598,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       settings: settings,
       channelId: channelId,
       usesFullScreenIntent: usesFullScreenIntent,
+      shownAt: DateTime.now(),
     );
 
     try {
@@ -608,12 +607,10 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         title: ReminderNotificationCopy.testTitle,
         body: ReminderNotificationCopy.testBody(plan: program),
         notificationDetails: details,
-        payload: jsonEncode(
-          ReminderLaunchPayload(
-            planId: program?.id,
-            alertMode: settings.alertMode,
-            isTest: true,
-          ).toJson(),
+        payload: _encodeReminderPayload(
+          planId: program?.id,
+          settings: settings,
+          isTest: true,
         ),
       );
     } catch (error) {
@@ -629,18 +626,17 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         channelId: channelId,
         usesFullScreenIntent: usesFullScreenIntent,
         icon: null,
+        shownAt: DateTime.now(),
       );
       await _plugin.show(
         id: _testNotificationId,
         title: ReminderNotificationCopy.testTitle,
         body: ReminderNotificationCopy.testBody(plan: program),
         notificationDetails: fallbackDetails,
-        payload: jsonEncode(
-          ReminderLaunchPayload(
-            planId: program?.id,
-            alertMode: settings.alertMode,
-            isTest: true,
-          ).toJson(),
+        payload: _encodeReminderPayload(
+          planId: program?.id,
+          settings: settings,
+          isTest: true,
         ),
       );
     }
@@ -696,7 +692,11 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       await _plugin.cancel(id: _testNotificationId);
     }
 
-    for (var index = startIndex; index < _maxScheduledNotifications; index += 1) {
+    for (
+      var index = startIndex;
+      index < _maxScheduledNotifications;
+      index += 1
+    ) {
       await _plugin.cancel(id: _notificationBaseId + index);
     }
   }
@@ -759,9 +759,8 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     }
 
     try {
-      final rawNotifications = await _settingsChannel.invokeMethod<List<Object?>>(
-        'getActiveNotifications',
-      );
+      final rawNotifications = await _settingsChannel
+          .invokeMethod<List<Object?>>('getActiveNotifications');
       if (rawNotifications == null) {
         return const <int>[];
       }
@@ -781,7 +780,8 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         final isManagedReminderId =
             notificationId == _testNotificationId ||
             (notificationId >= _notificationBaseId &&
-                notificationId < (_notificationBaseId + _maxScheduledNotifications));
+                notificationId <
+                    (_notificationBaseId + _maxScheduledNotifications));
         final isManagedReminderChannel =
             channelId != null && channelId.startsWith(_managedChannelPrefix);
 
@@ -802,6 +802,7 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     required String channelId,
     required bool usesFullScreenIntent,
     String? icon = _notificationSmallIcon,
+    DateTime? shownAt,
   }) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -823,6 +824,8 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
             ? AndroidNotificationCategory.alarm
             : AndroidNotificationCategory.reminder,
         autoCancel: false,
+        showWhen: true,
+        when: shownAt?.millisecondsSinceEpoch,
         channelShowBadge: false,
         fullScreenIntent: usesFullScreenIntent,
         audioAttributesUsage: settings.alertMode.prefersExactScheduling
@@ -839,6 +842,28 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
         presentBadge: false,
         presentSound: settings.soundEnabled,
       ),
+    );
+  }
+
+  String _encodeReminderPayload({
+    required String? planId,
+    required ReminderSettings settings,
+    DateTime? reminderAt,
+    bool isTest = false,
+  }) {
+    return jsonEncode(
+      ReminderLaunchPayload(
+        planId: planId,
+        reminderAt: reminderAt,
+        alertMode: settings.alertMode,
+        isTest: isTest,
+        soundEnabled: settings.soundEnabled,
+        notificationSoundUri: settings.notificationSoundUri,
+        vibrationEnabled: settings.vibrationEnabled,
+        vibrationLevel: settings.vibrationEnabled
+            ? settings.vibrationLevel
+            : null,
+      ).toJson(),
     );
   }
 
@@ -925,7 +950,9 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     }
 
     try {
-      return await _settingsChannel.invokeMethod<bool>('canUseFullScreenIntent');
+      return await _settingsChannel.invokeMethod<bool>(
+        'canUseFullScreenIntent',
+      );
     } catch (error) {
       debugPrint('Failed to inspect full-screen intent capability: $error');
       return null;

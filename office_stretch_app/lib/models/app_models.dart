@@ -354,12 +354,20 @@ class ReminderLaunchPayload {
     this.reminderAt,
     this.alertMode,
     this.isTest = false,
+    this.soundEnabled,
+    this.notificationSoundUri,
+    this.vibrationEnabled,
+    this.vibrationLevel,
   });
 
   final String? planId;
   final DateTime? reminderAt;
   final AlertMode? alertMode;
   final bool isTest;
+  final bool? soundEnabled;
+  final String? notificationSoundUri;
+  final bool? vibrationEnabled;
+  final VibrationLevel? vibrationLevel;
 
   factory ReminderLaunchPayload.fromJson(Map<String, Object?> json) {
     return ReminderLaunchPayload(
@@ -371,6 +379,12 @@ class ReminderLaunchPayload {
           ? null
           : AlertMode.values.byName(json['alertMode']! as String),
       isTest: json['test'] as bool? ?? false,
+      soundEnabled: json['soundEnabled'] as bool?,
+      notificationSoundUri: json['notificationSoundUri'] as String?,
+      vibrationEnabled: json['vibrationEnabled'] as bool?,
+      vibrationLevel: json['vibrationLevel'] == null
+          ? null
+          : VibrationLevel.values.byName(json['vibrationLevel']! as String),
     );
   }
 
@@ -380,6 +394,10 @@ class ReminderLaunchPayload {
       'reminderAt': reminderAt?.toIso8601String(),
       'alertMode': alertMode?.name,
       'test': isTest,
+      'soundEnabled': soundEnabled,
+      'notificationSoundUri': notificationSoundUri,
+      'vibrationEnabled': vibrationEnabled,
+      'vibrationLevel': vibrationLevel?.name,
     };
   }
 }

@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -94,6 +93,8 @@ abstract class BaseFlutterActivity : FlutterActivity() {
             }
         }
 
+        SystemEventBridge.attach(this, flutterEngine.dartExecutor.binaryMessenger)
+
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "office_stretch_app/host_activity",
@@ -102,9 +103,17 @@ abstract class BaseFlutterActivity : FlutterActivity() {
                 "finishIfAlarmHost" -> {
                     val shouldFinish = javaClass.simpleName == "AlarmActivity"
                     if (shouldFinish) {
+                        stopAlarmAttention()
                         finish()
                     }
                     result.success(shouldFinish)
+                }
+
+                "stopAlarmAttention" -> {
+                    if (javaClass.simpleName == "AlarmActivity") {
+                        stopAlarmAttention()
+                    }
+                    result.success(null)
                 }
 
                 else -> result.notImplemented()
@@ -227,17 +236,29 @@ abstract class BaseFlutterActivity : FlutterActivity() {
     }
 
     protected fun enableAlarmWindowBehavior() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
+        AlarmWindowController.enable(this)
+    }
+
+    protected fun vibrateAlarmIfNeeded(intent: Intent?) {
+        if (intent?.action != alarmFullscreenAction) {
             return
         }
 
-        @Suppress("DEPRECATION")
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-        )
+        val payload = intent.getStringExtra(alarmPayloadExtra) ?: return
+        AlarmVibrationController.vibrateIfNeeded(this, payload)
+    }
+
+    protected fun playAlarmSoundIfNeeded(intent: Intent?) {
+        if (intent?.action != alarmFullscreenAction) {
+            return
+        }
+
+        val payload = intent.getStringExtra(alarmPayloadExtra) ?: return
+        AlarmSoundController.playIfNeeded(this, payload)
+    }
+
+    protected fun stopAlarmAttention() {
+        AlarmSoundController.stop()
     }
 
     private fun deliverPendingLaunchCommand() {

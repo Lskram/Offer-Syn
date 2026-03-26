@@ -3,6 +3,7 @@ package com.lskram.officerelief
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import org.json.JSONObject
 
 class EntryActivity : Activity() {
@@ -11,8 +12,6 @@ class EntryActivity : Activity() {
         const val EXTRA_ALARM_PAYLOAD = "com.lskram.officerelief.extra.ALARM_PAYLOAD"
 
         private const val payloadExtraKey = "payload"
-        private const val selectNotificationAction = "SELECT_NOTIFICATION"
-        private const val selectForegroundNotificationAction = "SELECT_FOREGROUND_NOTIFICATION"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,24 +31,26 @@ class EntryActivity : Activity() {
             return
         }
 
-        val targetIntent = if (shouldOpenAlarmActivity(sourceIntent)) {
+        val shouldOpenAlarm = shouldOpenAlarmActivity(sourceIntent)
+        if (shouldOpenAlarm) {
+            AlarmWindowController.enable(this)
+        }
+
+        val targetIntent = if (shouldOpenAlarm) {
             buildAlarmIntent(sourceIntent)
         } else {
             buildMainIntent(sourceIntent)
         }
 
+        Log.i(
+            "EntryActivity",
+            "Routing intent to ${if (shouldOpenAlarm) "AlarmActivity" else "MainActivity"} action=${sourceIntent.action ?: "null"}",
+        )
         startActivity(targetIntent)
         finish()
     }
 
     private fun shouldOpenAlarmActivity(sourceIntent: Intent): Boolean {
-        val isNotificationLaunch =
-            sourceIntent.action == selectNotificationAction ||
-                sourceIntent.action == selectForegroundNotificationAction
-        if (!isNotificationLaunch) {
-            return false
-        }
-
         val payload = sourceIntent.getStringExtra(payloadExtraKey) ?: return false
         return try {
             JSONObject(payload).optString("alertMode") == "exactFullScreen"
@@ -68,7 +69,11 @@ class EntryActivity : Activity() {
         return Intent(this, AlarmActivity::class.java).apply {
             action = ACTION_ALARM_FULLSCREEN
             putExtra(EXTRA_ALARM_PAYLOAD, sourceIntent.getStringExtra(payloadExtraKey))
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_NEW_TASK,
+            )
         }
     }
 

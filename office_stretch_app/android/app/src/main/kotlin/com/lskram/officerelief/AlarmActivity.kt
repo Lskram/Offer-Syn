@@ -2,10 +2,14 @@ package com.lskram.officerelief
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 
 class AlarmActivity : BaseFlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableAlarmWindowBehavior()
+        AlarmWindowController.enable(this)
+        Log.i("AlarmActivity", "onCreate action=${intent?.action ?: "null"}")
+        vibrateAlarmIfNeeded(intent)
+        playAlarmSoundIfNeeded(intent)
         captureAlarmLaunchIntent(intent)
         super.onCreate(savedInstanceState)
     }
@@ -13,7 +17,15 @@ class AlarmActivity : BaseFlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        enableAlarmWindowBehavior()
+        AlarmWindowController.enable(this)
+        Log.i("AlarmActivity", "onNewIntent action=${intent.action ?: "null"}")
+        vibrateAlarmIfNeeded(intent)
+        playAlarmSoundIfNeeded(intent)
         captureAlarmLaunchIntent(intent)
+    }
+
+    override fun onDestroy() {
+        stopAlarmAttention()
+        super.onDestroy()
     }
 }

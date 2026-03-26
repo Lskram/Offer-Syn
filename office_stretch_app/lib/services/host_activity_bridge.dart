@@ -17,3 +17,17 @@ Future<bool> finishAlarmHostIfPresent() async {
     return false;
   }
 }
+
+Future<void> stopAlarmAttentionIfPresent() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return;
+  }
+
+  try {
+    await _hostActivityChannel.invokeMethod<void>('stopAlarmAttention');
+  } on MissingPluginException {
+    return;
+  } on PlatformException {
+    return;
+  }
+}

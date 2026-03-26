@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
@@ -163,14 +165,17 @@ class _HomeShellState extends State<HomeShell> {
       var openedSession = false;
       switch (action) {
         case AlarmScreenAction.start:
+          unawaited(stopAlarmAttentionIfPresent());
           _openPlan(launch.plan, reminderAt: launch.reminderAt);
           openedSession = true;
           break;
         case AlarmScreenAction.snooze:
+          unawaited(stopAlarmAttentionIfPresent());
           widget.appState.snoozePendingReminder(launch);
           await finishAlarmHostIfPresent();
           break;
         case AlarmScreenAction.dismiss:
+          unawaited(stopAlarmAttentionIfPresent());
           widget.appState.dismissPendingReminder(launch);
           await finishAlarmHostIfPresent();
           break;

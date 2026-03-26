@@ -141,27 +141,22 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
           headerGap: headerGap,
         ),
         SizedBox(height: blockGap),
+        _SessionCountdownHero(
+          remainingSeconds: _remainingSeconds,
+          totalSeconds: exercise.durationSeconds,
+          requiresStanding: exercise.requiresStanding,
+          compact: compactLayout,
+        ),
+        SizedBox(height: blockGap),
         Expanded(
           child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  child: _ExerciseVisualCard(
-                    key: ValueKey<String>(exercise.id),
-                    entry: entry,
-                    compact: compactLayout,
-                  ),
-                ),
-                SizedBox(height: blockGap),
-                _SessionCountdownHero(
-                  remainingSeconds: _remainingSeconds,
-                  totalSeconds: exercise.durationSeconds,
-                  requiresStanding: exercise.requiresStanding,
-                  compact: compactLayout,
-                ),
-              ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: _ExerciseVisualCard(
+                key: ValueKey<String>(exercise.id),
+                entry: entry,
+                compact: compactLayout,
+              ),
             ),
           ),
         ),
@@ -533,16 +528,16 @@ class _SessionCountdownHero extends StatelessWidget {
     final seconds = remainingSeconds % 60;
     final minutePart = minutes.toString().padLeft(2, '0');
     final secondPart = seconds.toString().padLeft(2, '0');
-    final progress = totalSeconds <= 0
-        ? 0.0
-        : remainingSeconds / totalSeconds;
+    final progress = totalSeconds <= 0 ? 0.0 : remainingSeconds / totalSeconds;
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 16 : 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.42,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

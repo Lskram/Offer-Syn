@@ -25,10 +25,7 @@ void main() {
     );
   }
 
-  Future<void> pumpSession(
-    WidgetTester tester, {
-    Size? surfaceSize,
-  }) async {
+  Future<void> pumpSession(WidgetTester tester, {Size? surfaceSize}) async {
     if (surfaceSize != null) {
       tester.view.physicalSize = surfaceSize;
       tester.view.devicePixelRatio = 1.0;
@@ -40,10 +37,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: ExerciseSessionScreen(
-          appState: AppState(),
-          plan: buildPlan(),
-        ),
+        home: ExerciseSessionScreen(appState: AppState(), plan: buildPlan()),
       ),
     );
     await tester.pump();
@@ -59,6 +53,20 @@ void main() {
     expect(find.textContaining('วินาทีจะเปลี่ยนท่า'), findsOneWidget);
     expect(find.text('ทำได้ขณะนั่ง'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('portrait keeps countdown above the action buttons', (
+    tester,
+  ) async {
+    await pumpSession(tester, surfaceSize: const Size(1080, 900));
+
+    final countdownBottom = tester
+        .getBottomRight(find.byType(LinearProgressIndicator))
+        .dy;
+    final actionTop = tester.getTopLeft(find.byKey(AppKeys.sessionSkip)).dy;
+
+    expect(countdownBottom, lessThan(actionTop));
+    expect(countdownBottom, lessThanOrEqualTo(900));
   });
 
   testWidgets('session screen keeps content and actions visible in landscape', (

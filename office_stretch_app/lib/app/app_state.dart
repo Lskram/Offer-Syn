@@ -42,6 +42,7 @@ class AppState extends ChangeNotifier {
   PendingReminderLaunch? _pendingReminderLaunch;
   int _programLaunchSequence = 0;
   bool _isRepairingReminderQueue = false;
+  String? _lastHandledSystemTimeChangeKey;
 
   bool get hasCompletedOnboarding => _profile != null;
   UserProfile? get profile => _profile;
@@ -210,6 +211,15 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
     await _sideEffects;
     notifyListeners();
+  }
+
+  void handleSystemTimeChangeSignal(SystemTimeChangeSignal signal) {
+    _applySystemTimeChangeSignal(
+      signal,
+      source: 'live',
+      notifyAfterUpdate: true,
+      queueSync: true,
+    );
   }
 
   void handleAppResumed() {
@@ -420,13 +430,21 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
-    _handleSystemTimeChange(signal);
+    _applySystemTimeChangeSignal(
+      signal,
+      source: 'resume_fallback',
+      notifyAfterUpdate: false,
+      queueSync: false,
+    );
     return true;
   }
 
-  void _handleSystemTimeChange(SystemTimeChangeSignal signal) {
+  void _handleSystemTimeChange(
+    SystemTimeChangeSignal signal, {
+    String? source,
+  }) {
     debugPrint(
-      'System time change observed: action=${signal.action}, zone=${signal.timeZoneId}, observedAt=${signal.observedAt.toIso8601String()}',
+      'System time change observed: source=${source ?? 'unspecified'}, action=${signal.action}, zone=${signal.timeZoneId}, observedAt=${signal.observedAt.toIso8601String()}',
     );
 
     if (_activePlan == null ||
@@ -436,6 +454,39 @@ class AppState extends ChangeNotifier {
     }
 
     _nextReminderAt = _recalculateNextReminderFromNow();
+  }
+
+  void _applySystemTimeChangeSignal(
+    SystemTimeChangeSignal signal, {
+    required String source,
+    required bool notifyAfterUpdate,
+    required bool queueSync,
+  }) {
+    final signalKey = _systemTimeChangeKey(signal);
+    if (_lastHandledSystemTimeChangeKey == signalKey) {
+      debugPrint(
+        'Skipping duplicate system time change signal: source=$source, action=${signal.action}, observedAt=${signal.observedAt.toIso8601String()}',
+      );
+      return;
+    }
+
+    _lastHandledSystemTimeChangeKey = signalKey;
+    _handleSystemTimeChange(signal, source: source);
+    if (notifyAfterUpdate) {
+      notifyListeners();
+    }
+    if (queueSync) {
+      _queueSideEffects(syncReminders: true);
+    }
+  }
+
+  String _systemTimeChangeKey(SystemTimeChangeSignal signal) {
+    return [
+      signal.action ?? 'null',
+      signal.timeZoneId ?? 'null',
+      signal.observedAt.millisecondsSinceEpoch,
+      signal.systemTime.millisecondsSinceEpoch,
+    ].join('|');
   }
 
   Future<void> _syncReminders() async {
@@ -586,10 +637,7 @@ class AppState extends ChangeNotifier {
     );
     _programLaunchSequence += 1;
     notifyListeners();
-    _queueSideEffects(
-      syncReminders: false,
-      clearDeliveredNotifications: true,
-    );
+    _queueSideEffects(syncReminders: false, clearDeliveredNotifications: true);
   }
 
   ReminderLaunchPayload? _parseReminderLaunchPayload(String? payload) {
