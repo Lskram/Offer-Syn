@@ -62,7 +62,7 @@ class QuestionnaireScreen extends StatelessWidget {
             ),
           ),
           onSubmit: (result) async {
-            appState.savePlan(
+            await appState.savePlan(
               profile: result.profile,
               intervalMinutes: result.intervalMinutes,
               activeStart: result.activeStart,

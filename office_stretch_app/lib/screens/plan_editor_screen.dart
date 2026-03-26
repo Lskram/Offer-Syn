@@ -21,7 +21,7 @@ class PlanEditorScreen extends StatelessWidget {
           submitLabel: 'บันทึกแผนหลัก',
           submitKey: AppKeys.planEditorSave,
           onSubmit: (result) async {
-            appState.savePlan(
+            await appState.savePlan(
               profile: result.profile,
               intervalMinutes: result.intervalMinutes,
               activeStart: result.activeStart,

@@ -43,6 +43,7 @@ class AppState extends ChangeNotifier {
   int _programLaunchSequence = 0;
   bool _isRepairingReminderQueue = false;
   String? _lastHandledSystemTimeChangeKey;
+  Future<void>? _backgroundFlush;
 
   bool get hasCompletedOnboarding => _profile != null;
   UserProfile? get profile => _profile;
@@ -121,11 +122,11 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
-  void completeQuestionnaire(UserProfile profile) {
-    savePlan(profile: profile);
+  Future<void> completeQuestionnaire(UserProfile profile) {
+    return savePlan(profile: profile);
   }
 
-  void savePlan({
+  Future<void> savePlan({
     required UserProfile profile,
     int? intervalMinutes,
     TimeOfDay? activeStart,
@@ -141,6 +142,7 @@ class AppState extends ChangeNotifier {
     _nextReminderAt = _defaultNextReminder();
     notifyListeners();
     _queueSideEffects(syncReminders: true);
+    return _sideEffects;
   }
 
   void restartOnboarding() {
@@ -238,6 +240,26 @@ class AppState extends ChangeNotifier {
           await _syncReminders();
           await _persistence.save(_buildSnapshot());
         });
+  }
+
+  Future<void> handleAppBackgrounded() {
+    final inFlightFlush = _backgroundFlush;
+    if (inFlightFlush != null) {
+      return inFlightFlush;
+    }
+
+    final flush = _sideEffects.catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      debugPrint('AppState background flush failed: $error');
+    });
+    _backgroundFlush = flush.whenComplete(() {
+      if (identical(_backgroundFlush, flush)) {
+        _backgroundFlush = null;
+      }
+    });
+    return _backgroundFlush!;
   }
 
   PendingReminderLaunch? consumePendingReminderLaunch() {

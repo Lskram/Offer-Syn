@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../screens/home_shell.dart';
@@ -31,6 +33,14 @@ class _OfficeStretchAppState extends State<OfficeStretchApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       widget.appState.handleAppResumed();
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(widget.appState.handleAppBackgrounded());
     }
   }
 

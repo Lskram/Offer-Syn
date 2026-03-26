@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -181,6 +182,42 @@ class RepairingTestReminderScheduler extends TestReminderScheduler {
       lastError: queueRecovered
           ? null
           : 'Reminder queue is empty after scheduling. A repair sync is required.',
+    );
+  }
+}
+
+class BlockingTestReminderScheduler extends TestReminderScheduler {
+  BlockingTestReminderScheduler(super.now);
+
+  Completer<void>? _pendingSyncBlocker;
+
+  void blockNextSync() {
+    _pendingSyncBlocker = Completer<void>();
+  }
+
+  void releaseBlockedSync() {
+    _pendingSyncBlocker?.complete();
+    _pendingSyncBlocker = null;
+  }
+
+  @override
+  Future<ReminderSyncState> sync({
+    required ReminderSettings settings,
+    required DateTime requestedStartAt,
+    required ExercisePlan? plan,
+  }) async {
+    final blocker = _pendingSyncBlocker;
+    if (blocker != null) {
+      await blocker.future;
+      if (identical(_pendingSyncBlocker, blocker)) {
+        _pendingSyncBlocker = null;
+      }
+    }
+
+    return super.sync(
+      settings: settings,
+      requestedStartAt: requestedStartAt,
+      plan: plan,
     );
   }
 }
@@ -378,6 +415,63 @@ void main() {
       expect(state.nextReminderAt, DateTime(2026, 3, 18, 18));
     },
   );
+
+  test('savePlan future waits for reminder side effects to finish', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final scheduler = BlockingTestReminderScheduler(() => now);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => now,
+    );
+
+    await state.initialize();
+    scheduler.blockNextSync();
+
+    var completed = false;
+    final saveFuture = state
+        .savePlan(profile: buildProfile())
+        .then((_) => completed = true);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(completed, isFalse);
+
+    scheduler.releaseBlockedSync();
+    await saveFuture;
+
+    expect(completed, isTrue);
+    expect(state.reminderSyncState.pendingRequestCount, greaterThan(0));
+  });
+
+  test('background flush waits for queued reminder side effects', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final scheduler = BlockingTestReminderScheduler(() => now);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: scheduler,
+      now: () => now,
+    );
+
+    await state.initialize();
+    await state.savePlan(profile: buildProfile());
+    scheduler.blockNextSync();
+
+    state.updateInterval(30);
+    var completed = false;
+    final flushFuture = state.handleAppBackgrounded().then(
+      (_) => completed = true,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(completed, isFalse);
+
+    scheduler.releaseBlockedSync();
+    await flushFuture;
+
+    expect(completed, isTrue);
+    expect(state.settings.intervalMinutes, 30);
+    expect(state.reminderSyncState.pendingRequestCount, greaterThan(0));
+  });
 
   test('repairs an empty reminder queue automatically after sync', () async {
     final now = DateTime(2026, 3, 18, 8, 5);
