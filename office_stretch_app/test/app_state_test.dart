@@ -140,8 +140,6 @@ class RepairingTestReminderScheduler extends TestReminderScheduler {
     super.maxEntries,
   });
 
-  int syncCallCount = 0;
-
   @override
   Future<ReminderSyncState> sync({
     required ReminderSettings settings,
@@ -415,6 +413,78 @@ void main() {
       expect(state.nextReminderAt, DateTime(2026, 3, 18, 18));
     },
   );
+
+  test('initialize upgrades legacy 1-minute user setting to 5 minutes', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final persistence = InMemoryAppPersistence();
+    await persistence.save(
+      PersistedAppData(
+        profile: buildProfile(),
+        settings: defaultReminderSettings.copyWith(intervalMinutes: 1),
+        logs: const <ExerciseLog>[],
+        nextReminderAt: DateTime(2026, 3, 18, 9),
+      ),
+    );
+
+    final state = AppState(
+      persistence: persistence,
+      reminderScheduler: TestReminderScheduler(() => now),
+      now: () => now,
+    );
+
+    await state.initialize();
+
+    expect(state.settings.intervalMinutes, 5);
+  });
+
+  test('restart onboarding clears app-managed data and requests permission review', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final persistence = InMemoryAppPersistence();
+    final state = AppState(
+      persistence: persistence,
+      reminderScheduler: TestReminderScheduler(() => now),
+      now: () => now,
+    );
+
+    await state.initialize();
+    await state.savePlan(profile: buildProfile());
+    state.logExercise(
+      state.activePlan!.exercises.first.exercise,
+      ExerciseStatus.done,
+    );
+    await state.settleSideEffects();
+
+    state.restartOnboarding();
+    await state.settleSideEffects();
+
+    expect(state.profile, isNull);
+    expect(state.activePlan, isNull);
+    expect(state.logs, isEmpty);
+    expect(state.reminderSyncState, const ReminderSyncState.empty());
+    expect(state.consumePermissionReviewAfterOnboardingReset(), isTrue);
+    expect(state.consumePermissionReviewAfterOnboardingReset(), isFalse);
+
+    final persisted = await persistence.load();
+    expect(persisted, isNotNull);
+    expect(persisted!.profile, isNull);
+    expect(persisted.logs, isEmpty);
+  });
+
+  test('updating prep countdown persists the selected seconds', () async {
+    final now = DateTime(2026, 3, 18, 8, 5);
+    final state = AppState(
+      persistence: InMemoryAppPersistence(),
+      reminderScheduler: TestReminderScheduler(() => now),
+      now: () => now,
+    );
+
+    await state.initialize();
+
+    state.updatePreSessionCountdownSeconds(20);
+    await state.settleSideEffects();
+
+    expect(state.settings.preSessionCountdownSeconds, 20);
+  });
 
   test('savePlan future waits for reminder side effects to finish', () async {
     final now = DateTime(2026, 3, 18, 8, 5);
@@ -700,13 +770,12 @@ void main() {
       expect(state.nextReminderAt, DateTime(2026, 3, 18, 12, 5));
 
       now = DateTime(2026, 3, 18, 8, 25);
-      scheduler
-        .._pendingSystemTimeChange = SystemTimeChangeSignal(
-          action: 'android.intent.action.TIMEZONE_CHANGED',
-          observedAt: now,
-          timeZoneId: 'Asia/Tokyo',
-          systemTime: now,
-        );
+      scheduler._pendingSystemTimeChange = SystemTimeChangeSignal(
+        action: 'android.intent.action.TIMEZONE_CHANGED',
+        observedAt: now,
+        timeZoneId: 'Asia/Tokyo',
+        systemTime: now,
+      );
       state.handleAppResumed();
       await state.settleSideEffects();
 

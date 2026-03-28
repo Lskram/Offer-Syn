@@ -34,6 +34,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
   int _completedCount = 0;
   int _skippedCount = 0;
   bool _isTransitioning = false;
+  bool _isPaused = false;
 
   PlannedExercise get _currentEntry => widget.plan.exercises[_exerciseIndex];
   Exercise get _currentExercise => _currentEntry.exercise;
@@ -145,6 +146,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
           remainingSeconds: _remainingSeconds,
           totalSeconds: exercise.durationSeconds,
           requiresStanding: exercise.requiresStanding,
+          isPaused: _isPaused,
           compact: compactLayout,
         ),
         SizedBox(height: blockGap),
@@ -166,6 +168,8 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
           blockGap: blockGap,
           actionPadding: actionPadding,
           isTransitioning: _isTransitioning,
+          isPaused: _isPaused,
+          onPauseToggle: _togglePause,
           onSkip: () => _advance(ExerciseStatus.skipped),
           onSnooze: () => _advance(ExerciseStatus.snoozed),
           onComplete: () => _advance(ExerciseStatus.done),
@@ -226,6 +230,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
                     remainingSeconds: _remainingSeconds,
                     totalSeconds: exercise.durationSeconds,
                     requiresStanding: exercise.requiresStanding,
+                    isPaused: _isPaused,
                     compact: compactLayout,
                   ),
                 ),
@@ -236,6 +241,8 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
                 blockGap: blockGap,
                 actionPadding: actionPadding,
                 isTransitioning: _isTransitioning,
+                isPaused: _isPaused,
+                onPauseToggle: _togglePause,
                 onSkip: () => _advance(ExerciseStatus.skipped),
                 onSnooze: () => _advance(ExerciseStatus.snoozed),
                 onComplete: () => _advance(ExerciseStatus.done),
@@ -252,6 +259,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
     final exerciseRunToken = ++_exerciseRunToken;
     setState(() {
       _remainingSeconds = _currentExercise.durationSeconds;
+      _isPaused = false;
     });
     _startTicker(exerciseRunToken: exerciseRunToken);
   }
@@ -295,7 +303,7 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
   void _recoverTickerAfterEnvironmentChange() {
     _metricsRecoveryTimer?.cancel();
     _invalidateTicker();
-    if (_isTransitioning || _remainingSeconds <= 0 || !mounted) {
+    if (_isTransitioning || _isPaused || _remainingSeconds <= 0 || !mounted) {
       return;
     }
 
@@ -397,6 +405,23 @@ class _ExerciseSessionScreenState extends State<ExerciseSessionScreen>
     });
     _beginCurrentExercise();
   }
+
+  void _togglePause() {
+    if (_isTransitioning) {
+      return;
+    }
+
+    setState(() {
+      _isPaused = !_isPaused;
+    });
+
+    if (_isPaused) {
+      _invalidateTicker();
+      return;
+    }
+
+    _startTicker(exerciseRunToken: _exerciseRunToken);
+  }
 }
 
 class _SessionHeader extends StatelessWidget {
@@ -445,6 +470,8 @@ class _SessionActionPanel extends StatelessWidget {
     required this.blockGap,
     required this.actionPadding,
     required this.isTransitioning,
+    required this.isPaused,
+    required this.onPauseToggle,
     required this.onSkip,
     required this.onSnooze,
     required this.onComplete,
@@ -454,6 +481,8 @@ class _SessionActionPanel extends StatelessWidget {
   final double blockGap;
   final double actionPadding;
   final bool isTransitioning;
+  final bool isPaused;
+  final VoidCallback onPauseToggle;
   final VoidCallback onSkip;
   final VoidCallback onSnooze;
   final VoidCallback onComplete;
@@ -463,6 +492,21 @@ class _SessionActionPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonalIcon(
+            key: AppKeys.sessionPauseToggle,
+            onPressed: isTransitioning ? null : onPauseToggle,
+            icon: Icon(
+              isPaused ? Icons.play_arrow_rounded : Icons.pause_circle_outline,
+            ),
+            label: Padding(
+              padding: EdgeInsets.symmetric(vertical: compact ? 10 : 12),
+              child: Text(isPaused ? 'เล่นเวลาต่อ' : 'หยุดเวลาไว้ก่อน'),
+            ),
+          ),
+        ),
+        SizedBox(height: blockGap),
         Row(
           children: [
             Expanded(
@@ -513,12 +557,14 @@ class _SessionCountdownHero extends StatelessWidget {
     required this.remainingSeconds,
     required this.totalSeconds,
     required this.requiresStanding,
+    required this.isPaused,
     required this.compact,
   });
 
   final int remainingSeconds;
   final int totalSeconds;
   final bool requiresStanding;
+  final bool isPaused;
   final bool compact;
 
   @override
@@ -579,6 +625,15 @@ class _SessionCountdownHero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          if (isPaused)
+            Text(
+              'หยุดเวลาไว้ชั่วคราว กดเล่นเวลาต่อเมื่อพร้อม',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF32634A),
+              ),
+            )
+          else
           Text(
             'อีก $remainingSeconds วินาทีจะเปลี่ยนท่า',
             style: theme.textTheme.bodyMedium?.copyWith(

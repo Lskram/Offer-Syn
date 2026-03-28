@@ -24,6 +24,16 @@ class SettingsScreen extends StatelessWidget {
         ? settings.notificationSoundLabel ?? 'เสียงระบบที่เลือก'
         : 'เสียงแจ้งเตือนเริ่มต้นของระบบ';
     final canEditAlertStyle = settings.notificationsEnabled;
+    final userFacingIntervalMinutes = userFacingReminderIntervalOptions.contains(
+          settings.intervalMinutes,
+        )
+        ? settings.intervalMinutes
+        : minimumUserFacingReminderIntervalMinutes;
+    final selectedPreSessionCountdown = preSessionCountdownOptions.contains(
+          settings.preSessionCountdownSeconds,
+        )
+        ? settings.preSessionCountdownSeconds
+        : 10;
 
     return SafeArea(
       child: ListView(
@@ -242,11 +252,11 @@ class SettingsScreen extends StatelessWidget {
                   DropdownButtonFormField<int>(
                     key: AppKeys.settingsIntervalMinutes,
                     isExpanded: true,
-                    initialValue: settings.intervalMinutes,
+                    initialValue: userFacingIntervalMinutes,
                     decoration: const InputDecoration(
                       labelText: 'รอบแจ้งเตือนเริ่มต้น',
                     ),
-                    items: const [1, 30, 45, 60, 90, 120]
+                    items: userFacingReminderIntervalOptions
                         .map(
                           (minutes) => DropdownMenuItem<int>(
                             value: minutes,
@@ -262,6 +272,38 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: (value) {
                       if (value != null) {
                         appState.updateInterval(value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'เพื่อให้ระบบเตือนนิ่งขึ้นบน Android รุ่นใหม่ ค่าใน UI ถูกจำกัดต่ำสุดที่ 5 นาที ส่วนรอบทดสอบ 1 นาทีจะถูกเก็บไว้สำหรับ automation ภายในเท่านั้น',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    key: AppKeys.settingsPreSessionCountdown,
+                    isExpanded: true,
+                    initialValue: selectedPreSessionCountdown,
+                    decoration: const InputDecoration(
+                      labelText: 'ช่วงเตรียมตัวก่อนเริ่มท่า (จาก Alarm screen)',
+                    ),
+                    items: preSessionCountdownOptions
+                        .map(
+                          (seconds) => DropdownMenuItem<int>(
+                            value: seconds,
+                            child: Text(
+                              preSessionCountdownLabel(seconds),
+                              key: AppKeys.settingsPreSessionCountdownOption(
+                                seconds,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        appState.updatePreSessionCountdownSeconds(value);
                       }
                     },
                   ),
@@ -354,15 +396,20 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'ถ้าอาการเปลี่ยนหรืออยากประเมินใหม่ สามารถทำแบบสอบถามใหม่ได้ ระบบจะล้างแผนและประวัติปัจจุบัน',
+                    'ถ้าอาการเปลี่ยนหรืออยากประเมินใหม่ สามารถทำแบบสอบถามใหม่ได้ ระบบจะล้างแผน ประวัติ คิวเตือน และข้อมูลที่แอปเก็บไว้ทั้งหมด จากนั้นจะพาไปรีวิวสิทธิ์ที่ระบบใช้อีกครั้ง',
                     style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Android ไม่อนุญาตให้แอปรีเซ็ต permission หรือ cache ระดับระบบให้เหมือนติดตั้งใหม่ได้เอง ดังนั้นรอบนี้จะเป็นการล้างข้อมูลที่แอปควบคุมได้ทั้งหมดและเปิด flow รีวิวสิทธิ์ใหม่แทน',
+                    style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     key: AppKeys.settingsRestartOnboarding,
                     onPressed: appState.restartOnboarding,
                     icon: const Icon(Icons.replay_outlined),
-                    label: const Text('ทำแบบสอบถามใหม่'),
+                    label: const Text('ทำแบบสอบถามใหม่และล้างข้อมูลแอป'),
                   ),
                 ],
               ),

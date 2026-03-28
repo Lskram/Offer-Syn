@@ -59,7 +59,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: SettingsScreen(appState: appState)),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     await tester.tap(find.byKey(AppKeys.settingsPermissionInfo('notifications')));
     await tester.pumpAndSettle();

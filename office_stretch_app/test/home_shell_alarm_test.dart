@@ -127,7 +127,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
   }
 
-  testWidgets('full-screen reminder payload opens alarm screen then session', (
+  testWidgets('full-screen reminder payload opens alarm screen then prep screen then session', (
     tester,
   ) async {
     final profile = buildProfile();
@@ -167,6 +167,11 @@ void main() {
     expect(find.byKey(AppKeys.alarmScreen), findsOneWidget);
 
     await tester.tap(find.byKey(AppKeys.alarmStart));
+    await pumpUi(tester);
+
+    expect(find.byKey(AppKeys.preSessionScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(AppKeys.preSessionStartNow));
     await pumpUi(tester);
 
     expect(find.byKey(AppKeys.sessionScreen), findsOneWidget);

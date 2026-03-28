@@ -89,19 +89,31 @@ abstract final class AppKeys {
   static const settingsIntervalMinutes = ValueKey<String>(
     'settings.intervalMinutes',
   );
+  static const settingsPreSessionCountdown = ValueKey<String>(
+    'settings.preSessionCountdown',
+  );
 
   static ValueKey<String> settingsIntervalOption(int minutes) {
     return ValueKey<String>('settings.intervalOption.$minutes');
+  }
+
+  static ValueKey<String> settingsPreSessionCountdownOption(int seconds) {
+    return ValueKey<String>('settings.preSessionCountdownOption.$seconds');
   }
 
   static const settingsRestartOnboarding = ValueKey<String>(
     'settings.restartOnboarding',
   );
 
+  static const preSessionScreen = ValueKey<String>('screen.preSession');
+  static const preSessionStartNow = ValueKey<String>('preSession.startNow');
+  static const preSessionCancel = ValueKey<String>('preSession.cancel');
+
   static const sessionScreen = ValueKey<String>('screen.session');
   static const sessionSkip = ValueKey<String>('session.skip');
   static const sessionSnooze = ValueKey<String>('session.snooze');
   static const sessionComplete = ValueKey<String>('session.complete');
+  static const sessionPauseToggle = ValueKey<String>('session.pauseToggle');
   static const sessionFinishClose = ValueKey<String>('session.finish.close');
 
   static const alarmScreen = ValueKey<String>('screen.alarm');

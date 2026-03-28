@@ -44,6 +44,7 @@ class AppState extends ChangeNotifier {
   bool _isRepairingReminderQueue = false;
   String? _lastHandledSystemTimeChangeKey;
   Future<void>? _backgroundFlush;
+  bool _needsPermissionReviewAfterOnboardingReset = false;
 
   bool get hasCompletedOnboarding => _profile != null;
   UserProfile? get profile => _profile;
@@ -60,6 +61,8 @@ class AppState extends ChangeNotifier {
       ExerciseCatalog.programsByArea;
   List<TipArticle> get tips => ExerciseCatalog.tips;
   int get pendingReminderLaunchSequence => _programLaunchSequence;
+  bool get needsPermissionReviewAfterOnboardingReset =>
+      _needsPermissionReviewAfterOnboardingReset;
 
   int get missedRemindersToday {
     final today = _now();
@@ -90,7 +93,7 @@ class AppState extends ChangeNotifier {
       _activePlan = _profile == null
           ? null
           : ExerciseCatalog.buildPlan(_profile!);
-      _settings = persistedData.settings;
+      _settings = _normalizeUserFacingReminderSettings(persistedData.settings);
       _logs
         ..clear()
         ..addAll(persistedData.logs);
@@ -131,11 +134,16 @@ class AppState extends ChangeNotifier {
     int? intervalMinutes,
     TimeOfDay? activeStart,
     TimeOfDay? activeEnd,
+    bool allowBelowMinimumInterval = false,
   }) {
     _profile = profile;
     _activePlan = ExerciseCatalog.buildPlan(profile);
+    final resolvedInterval = intervalMinutes ?? _activePlan!.reminderIntervalMinutes;
     _settings = _settings.copyWith(
-      intervalMinutes: intervalMinutes ?? _activePlan!.reminderIntervalMinutes,
+      intervalMinutes: _normalizeIntervalMinutes(
+        resolvedInterval,
+        allowBelowMinimum: allowBelowMinimumInterval,
+      ),
       activeStart: activeStart ?? _settings.activeStart,
       activeEnd: activeEnd ?? _settings.activeEnd,
     );
@@ -152,8 +160,16 @@ class AppState extends ChangeNotifier {
     _settings = defaultReminderSettings;
     _nextReminderAt = _defaultNextReminder();
     _pendingReminderLaunch = null;
+    _programLaunchSequence += 1;
+    _reminderSyncState = const ReminderSyncState.empty();
+    _lastHandledSystemTimeChangeKey = null;
+    _needsPermissionReviewAfterOnboardingReset = true;
     notifyListeners();
-    _queueSideEffects(syncReminders: true);
+    _queueSideEffects(
+      syncReminders: true,
+      clearDeliveredNotifications: true,
+      clearPersistence: true,
+    );
   }
 
   Future<void> requestNotificationPermission() async {
@@ -328,11 +344,22 @@ class AppState extends ChangeNotifier {
     _queueSideEffects(syncReminders: true);
   }
 
-  void updateInterval(int minutes) {
-    _settings = _settings.copyWith(intervalMinutes: minutes);
+  void updateInterval(int minutes, {bool allowBelowMinimumInterval = false}) {
+    _settings = _settings.copyWith(
+      intervalMinutes: _normalizeIntervalMinutes(
+        minutes,
+        allowBelowMinimum: allowBelowMinimumInterval,
+      ),
+    );
     _nextReminderAt = _recalculateNextReminderFromNow();
     notifyListeners();
     _queueSideEffects(syncReminders: true);
+  }
+
+  void updatePreSessionCountdownSeconds(int seconds) {
+    _settings = _settings.copyWith(preSessionCountdownSeconds: seconds);
+    notifyListeners();
+    _queueSideEffects(syncReminders: false);
   }
 
   void updateActiveWindow({TimeOfDay? start, TimeOfDay? end}) {
@@ -402,6 +429,12 @@ class AppState extends ChangeNotifier {
 
   Future<void> waitForIdle() => _sideEffects;
 
+  bool consumePermissionReviewAfterOnboardingReset() {
+    final shouldReview = _needsPermissionReviewAfterOnboardingReset;
+    _needsPermissionReviewAfterOnboardingReset = false;
+    return shouldReview;
+  }
+
   @visibleForTesting
   Future<void> settleSideEffects() => waitForIdle();
 
@@ -418,6 +451,7 @@ class AppState extends ChangeNotifier {
   void _queueSideEffects({
     required bool syncReminders,
     bool clearDeliveredNotifications = false,
+    bool clearPersistence = false,
   }) {
     _sideEffects = _sideEffects
         .catchError((Object error, StackTrace stackTrace) {
@@ -426,6 +460,9 @@ class AppState extends ChangeNotifier {
         .then((_) async {
           if (clearDeliveredNotifications) {
             await _reminderScheduler.clearDeliveredNotifications();
+          }
+          if (clearPersistence) {
+            await _persistence.clear();
           }
           if (syncReminders) {
             await _syncReminders();
@@ -774,5 +811,33 @@ class AppState extends ChangeNotifier {
     return left.year == right.year &&
         left.month == right.month &&
         left.day == right.day;
+  }
+
+  ReminderSettings _normalizeUserFacingReminderSettings(
+    ReminderSettings settings,
+  ) {
+    final normalizedInterval = _normalizeIntervalMinutes(
+      settings.intervalMinutes,
+      allowBelowMinimum: false,
+    );
+    if (normalizedInterval == settings.intervalMinutes) {
+      return settings;
+    }
+
+    return settings.copyWith(intervalMinutes: normalizedInterval);
+  }
+
+  int _normalizeIntervalMinutes(
+    int minutes, {
+    required bool allowBelowMinimum,
+  }) {
+    if (allowBelowMinimum) {
+      return minutes;
+    }
+
+    if (minutes < minimumUserFacingReminderIntervalMinutes) {
+      return minimumUserFacingReminderIntervalMinutes;
+    }
+    return minutes;
   }
 }

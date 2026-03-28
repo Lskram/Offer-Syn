@@ -53,6 +53,7 @@ void main() {
     expect(find.textContaining('วินาทีจะเปลี่ยนท่า'), findsOneWidget);
     expect(find.text('ทำได้ขณะนั่ง'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byKey(AppKeys.sessionPauseToggle), findsOneWidget);
   });
 
   testWidgets('portrait keeps countdown above the action buttons', (
@@ -83,6 +84,7 @@ void main() {
     expect(find.text('เลื่อน 10 นาที'), findsOneWidget);
     expect(find.text('ทำครบและไปท่าถัดไป'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byKey(AppKeys.sessionPauseToggle), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -131,4 +133,36 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('pause and resume controls freeze and restart countdown progress', (
+    tester,
+  ) async {
+    await pumpSession(tester, surfaceSize: const Size(1080, 2400));
+
+    final progressFinder = find.byType(LinearProgressIndicator);
+    final initialValue =
+        tester.widget<LinearProgressIndicator>(progressFinder).value!;
+
+    await tester.pump(const Duration(seconds: 2));
+    final runningValue =
+        tester.widget<LinearProgressIndicator>(progressFinder).value!;
+    expect(runningValue, lessThan(initialValue));
+
+    await tester.tap(find.byKey(AppKeys.sessionPauseToggle));
+    await tester.pump();
+    final pausedValue =
+        tester.widget<LinearProgressIndicator>(progressFinder).value!;
+
+    await tester.pump(const Duration(seconds: 2));
+    final stillPausedValue =
+        tester.widget<LinearProgressIndicator>(progressFinder).value!;
+    expect(stillPausedValue, pausedValue);
+
+    await tester.tap(find.byKey(AppKeys.sessionPauseToggle));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+
+    final resumedValue =
+        tester.widget<LinearProgressIndicator>(progressFinder).value!;
+    expect(resumedValue, lessThan(pausedValue));
+  });
 }

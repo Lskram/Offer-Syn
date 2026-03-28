@@ -14,6 +14,7 @@ void main() {
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 16, minute: 30),
       intervalMinutes: 60,
+      preSessionCountdownSeconds: 10,
     );
 
     final now = DateTime(2026, 3, 18, 12);
@@ -45,6 +46,7 @@ void main() {
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 16, minute: 30),
       intervalMinutes: 45,
+      preSessionCountdownSeconds: 10,
     );
 
     final now = DateTime(2026, 3, 18, 9);
@@ -78,6 +80,7 @@ void main() {
       activeStart: TimeOfDay(hour: 18, minute: 0),
       activeEnd: TimeOfDay(hour: 23, minute: 59),
       intervalMinutes: 45,
+      preSessionCountdownSeconds: 10,
     );
 
     final now = DateTime(2026, 3, 18, 20, 10);
@@ -101,6 +104,7 @@ void main() {
       activeStart: TimeOfDay(hour: 18, minute: 0),
       activeEnd: TimeOfDay(hour: 2, minute: 0),
       intervalMinutes: 60,
+      preSessionCountdownSeconds: 10,
     );
 
     final now = DateTime(2026, 3, 19, 0, 30);
@@ -124,6 +128,7 @@ void main() {
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 8, minute: 0),
       intervalMinutes: 60,
+      preSessionCountdownSeconds: 10,
     );
 
     final schedule = ReminderTimeline.buildSchedule(

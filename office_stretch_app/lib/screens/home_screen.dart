@@ -38,6 +38,17 @@ class HomeScreen extends StatelessWidget {
     final nextReminderText = TimeOfDay.fromDateTime(
       appState.nextReminderAt,
     ).format(context);
+    final diagnostics = appState.reminderDiagnostics;
+    final readinessWarnings = <String>[
+      if (appState.settings.alertMode.prefersExactScheduling &&
+          diagnostics.exactAlarmsEnabled == false)
+        'Exact alarm ยังไม่พร้อม การเตือนอาจเลื่อนระดับนาทีได้',
+      if (diagnostics.ignoresBatteryOptimizations == false)
+        'Battery optimization ยังจำกัดแอปอยู่ การเตือนอาจมาช้าหรือไม่ปลุกเครื่อง',
+      if (appState.settings.alertMode.prefersFullScreenIntent &&
+          diagnostics.fullScreenIntentEnabled == false)
+        'Full-screen intent ยังไม่พร้อม รอบจอดับอาจแสดงเป็น notification แทน Alarm screen',
+    ];
 
     return SafeArea(
       child: ListView(
@@ -78,6 +89,39 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     const OfficeReliefMissedState(size: 88),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
+          if (readinessWarnings.isNotEmpty) ...[
+            Card(
+              color: theme.colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'สิ่งที่ยังมีผลกับความตรงเวลา',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...readinessWarnings.map(
+                      (warning) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '• $warning',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

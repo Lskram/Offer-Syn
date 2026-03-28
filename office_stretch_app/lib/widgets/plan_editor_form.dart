@@ -91,7 +91,11 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
     };
     _workHours = profile?.workHours;
     _stretchHabit = profile?.stretchHabit;
-    _intervalMinutes = widget.initialSettings.intervalMinutes;
+    _intervalMinutes = userFacingReminderIntervalOptions.contains(
+          widget.initialSettings.intervalMinutes,
+        )
+        ? widget.initialSettings.intervalMinutes
+        : minimumUserFacingReminderIntervalMinutes;
     _activeStart = widget.initialSettings.activeStart;
     _activeEnd = widget.initialSettings.activeEnd;
 
@@ -305,7 +309,7 @@ class _PlanEditorFormState extends State<PlanEditorForm> {
           DropdownButtonFormField<int>(
             initialValue: _intervalMinutes,
             decoration: const InputDecoration(labelText: 'รอบแจ้งเตือน'),
-            items: const [1, 30, 45, 60, 90, 120]
+            items: userFacingReminderIntervalOptions
                 .map(
                   (minutes) => DropdownMenuItem<int>(
                     value: minutes,

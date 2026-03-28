@@ -15,6 +15,7 @@ void main() {
     expect(settings.vibrationEnabled, isTrue);
     expect(settings.vibrationLevel, VibrationLevel.medium);
     expect(settings.alertMode, AlertMode.exact);
+    expect(settings.preSessionCountdownSeconds, 10);
     expect(settings.notificationSoundUri, isNull);
     expect(settings.notificationSoundLabel, isNull);
   });
@@ -29,6 +30,7 @@ void main() {
       activeStart: TimeOfDay(hour: 8, minute: 0),
       activeEnd: TimeOfDay(hour: 16, minute: 30),
       intervalMinutes: 60,
+      preSessionCountdownSeconds: 10,
       notificationSoundUri: 'content://settings/system/notification_sound',
       notificationSoundLabel: 'Office Bell',
     );

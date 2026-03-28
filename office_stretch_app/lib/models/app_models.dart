@@ -9,7 +9,27 @@ const defaultReminderSettings = ReminderSettings(
   activeStart: TimeOfDay(hour: 8, minute: 0),
   activeEnd: TimeOfDay(hour: 16, minute: 30),
   intervalMinutes: 60,
+  preSessionCountdownSeconds: 10,
 );
+
+const minimumUserFacingReminderIntervalMinutes = 5;
+const userFacingReminderIntervalOptions = <int>[5, 30, 45, 60, 90, 120];
+const internalAutomationReminderIntervalMinutes = 1;
+const preSessionCountdownOptions = <int>[0, 5, 10, 15, 20, 30];
+
+String reminderIntervalLabel(int minutes) {
+  if (minutes == internalAutomationReminderIntervalMinutes) {
+    return 'ทุก 1 นาที (สำหรับทดสอบภายใน)';
+  }
+  return 'ทุก $minutes นาที';
+}
+
+String preSessionCountdownLabel(int seconds) {
+  if (seconds <= 0) {
+    return 'ไม่ต้องมีช่วงเตรียมตัว';
+  }
+  return 'เตรียมตัว $seconds วินาที';
+}
 
 enum AlertMode { notification, exact, exactFullScreen }
 
@@ -462,6 +482,7 @@ class ReminderSettings {
     required this.activeStart,
     required this.activeEnd,
     required this.intervalMinutes,
+    required this.preSessionCountdownSeconds,
     this.notificationSoundUri,
     this.notificationSoundLabel,
   });
@@ -474,6 +495,7 @@ class ReminderSettings {
   final TimeOfDay activeStart;
   final TimeOfDay activeEnd;
   final int intervalMinutes;
+  final int preSessionCountdownSeconds;
   final String? notificationSoundUri;
   final String? notificationSoundLabel;
 
@@ -487,6 +509,7 @@ class ReminderSettings {
       'activeStartMinutes': _toMinutes(activeStart),
       'activeEndMinutes': _toMinutes(activeEnd),
       'intervalMinutes': intervalMinutes,
+      'preSessionCountdownSeconds': preSessionCountdownSeconds,
       'notificationSoundUri': notificationSoundUri,
       'notificationSoundLabel': notificationSoundLabel,
     };
@@ -506,6 +529,8 @@ class ReminderSettings {
       activeStart: _fromMinutes(json['activeStartMinutes']! as int),
       activeEnd: _fromMinutes(json['activeEndMinutes']! as int),
       intervalMinutes: json['intervalMinutes']! as int,
+      preSessionCountdownSeconds:
+          json['preSessionCountdownSeconds'] as int? ?? 10,
       notificationSoundUri: json['notificationSoundUri'] as String?,
       notificationSoundLabel: json['notificationSoundLabel'] as String?,
     );
@@ -520,6 +545,7 @@ class ReminderSettings {
     TimeOfDay? activeStart,
     TimeOfDay? activeEnd,
     int? intervalMinutes,
+    int? preSessionCountdownSeconds,
     String? notificationSoundUri,
     String? notificationSoundLabel,
     bool clearNotificationSound = false,
@@ -533,6 +559,8 @@ class ReminderSettings {
       activeStart: activeStart ?? this.activeStart,
       activeEnd: activeEnd ?? this.activeEnd,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+      preSessionCountdownSeconds:
+          preSessionCountdownSeconds ?? this.preSessionCountdownSeconds,
       notificationSoundUri: clearNotificationSound
           ? null
           : notificationSoundUri ?? this.notificationSoundUri,

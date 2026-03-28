@@ -24,11 +24,13 @@ function Get-AndroidWorkspacePaths {
         AndroidTemp              = Join-Path $AndroidWorkRoot 'tmp'
         GradleUserHome           = Join-Path $AndroidWorkRoot 'gradle-home'
         SdkRedirectRoot          = Join-Path $AndroidWorkRoot 'sdk-redir'
-        BuildDirRedirect         = Join-Path $AndroidWorkRoot 'office_stretch_app_build'
         AppDataRoot              = Join-Path $workspaceRoot '.appdata'
         Emulator                 = Join-Path $AndroidSdkRoot 'emulator\emulator.exe'
         Adb                      = Join-Path $AndroidSdkRoot 'platform-tools\adb.exe'
         BuildDir                 = Join-Path $ProjectRoot 'build'
+        DartToolDir              = Join-Path $ProjectRoot '.dart_tool'
+        FlutterBuildDir          = Join-Path $ProjectRoot '.dart_tool\flutter_build'
+        FlutterBuildDirRedirect  = Join-Path $AndroidWorkRoot 'office_stretch_app_flutter_build'
         SdkNdk                   = Join-Path $AndroidSdkRoot 'ndk'
         SdkTemp                  = Join-Path $AndroidSdkRoot '.temp'
         SdkDownloadIntermediates = Join-Path $AndroidSdkRoot '.downloadIntermediates'
@@ -79,6 +81,21 @@ function Ensure-Junction {
     New-Item -ItemType Junction -Path $Path -Target $Target | Out-Null
 }
 
+function Ensure-ProjectBuildDirectory {
+    param([string]$Path)
+
+    if (Test-Path $Path) {
+        $item = Get-Item $Path -Force
+        $isReparsePoint = ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+
+        if ($isReparsePoint) {
+            Remove-Item $Path -Recurse -Force
+        }
+    }
+
+    Ensure-Directory $Path
+}
+
 function Initialize-AndroidWorkspace {
     param([pscustomobject]$Paths)
 
@@ -91,13 +108,15 @@ function Initialize-AndroidWorkspace {
     Ensure-Directory (Join-Path $Paths.AppDataRoot 'local')
     Ensure-Directory (Join-Path $Paths.AppDataRoot 'pub-cache')
     Ensure-Directory $Paths.SdkRedirectRoot
+    Ensure-Directory $Paths.DartToolDir
 
     Ensure-Junction -Path $Paths.SdkNdk -Target (Join-Path $Paths.SdkRedirectRoot 'ndk')
     Ensure-Junction -Path $Paths.SdkTemp -Target (Join-Path $Paths.SdkRedirectRoot '.temp')
     Ensure-Junction `
         -Path $Paths.SdkDownloadIntermediates `
         -Target (Join-Path $Paths.SdkRedirectRoot '.downloadIntermediates')
-    Ensure-Junction -Path $Paths.BuildDir -Target $Paths.BuildDirRedirect
+    Ensure-ProjectBuildDirectory -Path $Paths.BuildDir
+    Ensure-Junction -Path $Paths.FlutterBuildDir -Target $Paths.FlutterBuildDirRedirect
 
     $env:JAVA_HOME = $Paths.JavaHome
     $env:ANDROID_AVD_HOME = $Paths.AndroidAvdHome

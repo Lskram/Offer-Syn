@@ -263,7 +263,7 @@ function Build-And-InstallDebugApp {
 
     Push-Location $Paths.ProjectRoot
     try {
-        & $Paths.FlutterBin build apk --debug --no-pub
+        & $Paths.FlutterBin build apk --debug --target-platform android-arm64 --no-pub
         if ($LASTEXITCODE -ne 0) {
             throw 'flutter build apk --debug failed.'
         }

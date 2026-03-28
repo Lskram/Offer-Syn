@@ -129,6 +129,7 @@ Future<void> _applyAutomationBaseline({
     intervalMinutes: command.intervalMinutes,
     activeStart: command.activeStart,
     activeEnd: command.activeEnd,
+    allowBelowMinimumInterval: true,
   );
   appState.updateNotificationsEnabled(true);
   appState.updateAlertMode(command.alertMode);
