@@ -354,6 +354,8 @@ abstract class BaseFlutterActivity : FlutterActivity() {
                 mapOf(
                     "id" to statusBarNotification.id,
                     "tag" to statusBarNotification.tag,
+                    "postTime" to statusBarNotification.postTime,
+                    "shownAt" to notification.`when`,
                     "channelId" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) notification.channelId else null,
                     "category" to notification.category,
                     "hasFullScreenIntent" to (notification.fullScreenIntent != null),

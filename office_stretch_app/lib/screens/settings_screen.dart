@@ -554,6 +554,17 @@ class _ReminderReadinessCard extends StatelessWidget {
                   : 'Not applicable',
             ),
             _StatusRow(
+              label: 'Last observed drift',
+              value: _formatDeliveryDrift(diagnostics.lastObservedReminderDelivery),
+            ),
+            _StatusRow(
+              label: 'Last posted notification',
+              value: _formatScheduledTime(
+                context,
+                diagnostics.lastObservedReminderDelivery?.postedAt,
+              ),
+            ),
+            _StatusRow(
               label: 'Confirmed reminders',
               value:
                   '${syncState.scheduledReminders.length}/${syncState.requestedReminderCount}',
@@ -608,6 +619,27 @@ class _ReminderReadinessCard extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   child: Text(
                     'Last sync error: ${syncState.lastError}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (diagnostics.needsDeliveryAttention) ...[
+              const SizedBox(height: 12),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    _buildDeliveryAttentionMessage(
+                      diagnostics.lastObservedReminderDelivery,
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.error,
                       fontWeight: FontWeight.w600,
@@ -694,6 +726,25 @@ class _ReminderReadinessCard extends StatelessWidget {
     return '${value.day.toString().padLeft(2, '0')}/'
         '${value.month.toString().padLeft(2, '0')} '
         '$timeLabel';
+  }
+
+  String _formatDeliveryDrift(ReminderDeliveryDrift? drift) {
+    if (drift == null) {
+      return 'No sample yet';
+    }
+    return drift.delayLabel;
+  }
+
+  String _buildDeliveryAttentionMessage(ReminderDeliveryDrift? drift) {
+    if (drift == null) {
+      return 'Android is still delaying reminder delivery. Check exact alarm, battery optimization, and OEM background settings.';
+    }
+
+    if (drift.isSeverelyDelayed) {
+      return 'Last observed reminder delivery was ${drift.delayLabel}. This device is still delaying alerts heavily. Check exact alarm, battery optimization, and OEM background restrictions.';
+    }
+
+    return 'Last observed reminder delivery was ${drift.delayLabel}. The queue is healthy, but the device is still adding noticeable delay.';
   }
 }
 

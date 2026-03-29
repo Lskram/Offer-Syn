@@ -113,8 +113,8 @@ class AppState extends ChangeNotifier {
     if (!didObserveSystemTimeChange) {
       _reconcileMissedReminders(now: _now());
     }
-    await _reminderScheduler.clearDeliveredNotifications();
     await _refreshReminderDiagnostics(notify: false);
+    await _reminderScheduler.clearDeliveredNotifications();
     await _syncAndPersistNow();
     notifyListeners();
   }
@@ -251,6 +251,7 @@ class AppState extends ChangeNotifier {
           if (!didObserveSystemTimeChange) {
             _reconcileMissedReminders(now: _now());
           }
+          await _refreshReminderDiagnostics(notify: false);
           await _reminderScheduler.clearDeliveredNotifications();
           notifyListeners();
           await _syncReminders();
@@ -477,7 +478,15 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _refreshReminderDiagnostics({bool notify = true}) async {
-    _reminderDiagnostics = await _reminderScheduler.diagnostics();
+    final diagnostics = await _reminderScheduler.diagnostics();
+    _reminderDiagnostics =
+        diagnostics.lastObservedReminderDelivery == null &&
+            _reminderDiagnostics.lastObservedReminderDelivery != null
+        ? diagnostics.copyWith(
+            lastObservedReminderDelivery:
+                _reminderDiagnostics.lastObservedReminderDelivery,
+          )
+        : diagnostics;
     if (notify) {
       notifyListeners();
     }

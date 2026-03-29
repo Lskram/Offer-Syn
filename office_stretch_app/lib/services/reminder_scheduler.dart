@@ -269,11 +269,15 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
       debugPrint('Failed to read full-screen intent state: $error');
     }
 
+    final lastObservedReminderDelivery =
+        await _readLatestManagedReminderDelivery();
+
     return ReminderDiagnostics.android(
       notificationsEnabled: notificationsEnabled,
       ignoresBatteryOptimizations: ignoresBatteryOptimizations,
       exactAlarmsEnabled: exactAlarmsEnabled,
       fullScreenIntentEnabled: fullScreenIntentEnabled,
+      lastObservedReminderDelivery: lastObservedReminderDelivery,
     );
   }
 
@@ -753,23 +757,25 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
     return const <PendingNotificationRequest>[];
   }
 
-  Future<List<int>> _readManagedActiveNotificationIds() async {
+  Future<List<Map<String, Object?>>> _readManagedActiveNotifications() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      return const <int>[];
+      return const <Map<String, Object?>>[];
     }
 
     try {
       final rawNotifications = await _settingsChannel
           .invokeMethod<List<Object?>>('getActiveNotifications');
       if (rawNotifications == null) {
-        return const <int>[];
+        return const <Map<String, Object?>>[];
       }
 
-      final managedIds = <int>{};
-      for (final entry in rawNotifications) {
-        if (entry is! Map) {
+      final managedNotifications = <Map<String, Object?>>[];
+      for (final rawEntry in rawNotifications) {
+        if (rawEntry is! Map) {
           continue;
         }
+
+        final entry = rawEntry.cast<Object?, Object?>().cast<String, Object?>();
 
         final notificationId = entry['id'];
         if (notificationId is! int) {
@@ -786,15 +792,59 @@ class LocalNotificationReminderScheduler implements ReminderScheduler {
             channelId != null && channelId.startsWith(_managedChannelPrefix);
 
         if (isManagedReminderId || isManagedReminderChannel) {
-          managedIds.add(notificationId);
+          managedNotifications.add(entry);
         }
       }
 
-      return managedIds.toList(growable: false);
+      return managedNotifications;
     } catch (error) {
       debugPrint('Failed to read active reminder notifications: $error');
-      return const <int>[];
+      return const <Map<String, Object?>>[];
     }
+  }
+
+  Future<List<int>> _readManagedActiveNotificationIds() async {
+    final managedNotifications = await _readManagedActiveNotifications();
+    return managedNotifications
+        .map((entry) => entry['id'])
+        .whereType<int>()
+        .toSet()
+        .toList(growable: false);
+  }
+
+  Future<ReminderDeliveryDrift?> _readLatestManagedReminderDelivery() async {
+    final managedNotifications = await _readManagedActiveNotifications();
+    if (managedNotifications.isEmpty) {
+      return null;
+    }
+
+    ReminderDeliveryDrift? latestDrift;
+    for (final entry in managedNotifications) {
+      final notificationId = entry['id'];
+      final postedAtRaw = entry['postTime'];
+      if (notificationId is! int || postedAtRaw is! int) {
+        continue;
+      }
+
+      final shownAtRaw = entry['shownAt'];
+      final candidate = ReminderDeliveryDrift(
+        notificationId: notificationId,
+        postedAt: DateTime.fromMillisecondsSinceEpoch(postedAtRaw),
+        scheduledAt: shownAtRaw is int && shownAtRaw > 0
+            ? DateTime.fromMillisecondsSinceEpoch(shownAtRaw)
+            : null,
+        channelId: entry['channelId'] as String?,
+        category: entry['category'] as String?,
+        usesFullScreenIntent: entry['hasFullScreenIntent'] == true,
+      );
+
+      if (latestDrift == null ||
+          candidate.postedAt.isAfter(latestDrift.postedAt)) {
+        latestDrift = candidate;
+      }
+    }
+
+    return latestDrift;
   }
 
   NotificationDetails _buildNotificationDetails({

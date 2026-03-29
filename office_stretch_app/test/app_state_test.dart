@@ -21,15 +21,21 @@ class TestReminderScheduler implements ReminderScheduler {
     this.confirmPendingRequests = true,
     this.notificationsPermissionAtSync = true,
     this.maxEntries = 4,
+    List<ReminderDiagnostics>? diagnosticResponses,
     String? initialPayload,
     SystemTimeChangeSignal? pendingSystemTimeChange,
   }) : _pendingPayload = initialPayload,
-       _pendingSystemTimeChange = pendingSystemTimeChange;
+       _pendingSystemTimeChange = pendingSystemTimeChange,
+       _diagnosticResponses =
+           diagnosticResponses == null
+               ? <ReminderDiagnostics>[]
+               : List<ReminderDiagnostics>.from(diagnosticResponses);
 
   final DateTime Function() now;
   final bool confirmPendingRequests;
   final bool? notificationsPermissionAtSync;
   final int maxEntries;
+  final List<ReminderDiagnostics> _diagnosticResponses;
   String? _pendingPayload;
   SystemTimeChangeSignal? _pendingSystemTimeChange;
   int clearDeliveredNotificationsCallCount = 0;
@@ -47,6 +53,9 @@ class TestReminderScheduler implements ReminderScheduler {
 
   @override
   Future<ReminderDiagnostics> diagnostics() async {
+    if (_diagnosticResponses.isNotEmpty) {
+      return _diagnosticResponses.removeAt(0);
+    }
     return const ReminderDiagnostics.unsupported();
   }
 
@@ -338,6 +347,52 @@ void main() {
       await state.settleSideEffects();
 
       expect(scheduler.clearDeliveredNotificationsCallCount, 2);
+    },
+  );
+
+  test(
+    'preserves the last observed delivery drift sample after later refreshes',
+    () async {
+      final now = DateTime(2026, 3, 18, 8, 5);
+      final scheduler = TestReminderScheduler(
+        () => now,
+        diagnosticResponses: <ReminderDiagnostics>[
+          ReminderDiagnostics.android(
+            notificationsEnabled: true,
+            ignoresBatteryOptimizations: true,
+            exactAlarmsEnabled: true,
+            fullScreenIntentEnabled: true,
+            lastObservedReminderDelivery: ReminderDeliveryDrift(
+              notificationId: 1000,
+              scheduledAt: DateTime(2026, 3, 18, 8, 0),
+              postedAt: DateTime(2026, 3, 18, 8, 0, 14),
+            ),
+          ),
+          const ReminderDiagnostics.android(
+            notificationsEnabled: true,
+            ignoresBatteryOptimizations: true,
+            exactAlarmsEnabled: true,
+            fullScreenIntentEnabled: true,
+          ),
+        ],
+      );
+      final state = AppState(
+        persistence: InMemoryAppPersistence(),
+        reminderScheduler: scheduler,
+        now: () => now,
+      );
+
+      await state.refreshReminderDiagnostics();
+      expect(
+        state.reminderDiagnostics.lastObservedReminderDelivery?.delay,
+        const Duration(seconds: 14),
+      );
+
+      await state.refreshReminderDiagnostics();
+      expect(
+        state.reminderDiagnostics.lastObservedReminderDelivery?.delay,
+        const Duration(seconds: 14),
+      );
     },
   );
 
