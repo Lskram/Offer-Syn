@@ -4,6 +4,7 @@ import '../app/app_keys.dart';
 import '../app/app_state.dart';
 import '../models/app_models.dart';
 import '../models/reminder_diagnostics.dart';
+import '../models/reminder_sync_state.dart';
 import 'plan_editor_screen.dart';
 import '../widgets/office_relief_brand_mark.dart';
 
@@ -449,6 +450,8 @@ class _ReminderReadinessCard extends StatelessWidget {
     final theme = Theme.of(context);
     final syncState = appState.reminderSyncState;
     final hasReminderIssue = diagnostics.needsAttention || syncState.needsRepair;
+    final readinessSummary = _buildReadinessSummary(syncState);
+    final troubleshootingItems = _buildTroubleshootingItems(syncState);
 
     return Card(
       color: hasReminderIssue
@@ -649,6 +652,65 @@ class _ReminderReadinessCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 16),
+            DecoratedBox(
+              key: AppKeys.settingsReadinessSummary,
+              decoration: BoxDecoration(
+                color: readinessSummary.backgroundColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      readinessSummary.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: readinessSummary.foregroundColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      readinessSummary.body,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: readinessSummary.foregroundColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (troubleshootingItems.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              DecoratedBox(
+                key: AppKeys.settingsTroubleshooting,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Troubleshooting',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final item in troubleshootingItems)
+                        _BulletRow(text: item),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -746,6 +808,103 @@ class _ReminderReadinessCard extends StatelessWidget {
 
     return 'Last observed reminder delivery was ${drift.delayLabel}. The queue is healthy, but the device is still adding noticeable delay.';
   }
+
+  _ReadinessSummaryData _buildReadinessSummary(ReminderSyncState syncState) {
+    final notificationsDenied = diagnostics.notificationsEnabled == false;
+    final batteryRestricted =
+        diagnostics.isAndroid && diagnostics.ignoresBatteryOptimizations == false;
+    final exactUnavailable =
+        diagnostics.isAndroid && diagnostics.exactAlarmsEnabled == false;
+    final fullScreenUnavailable =
+        appState.settings.alertMode == AlertMode.exactFullScreen &&
+        diagnostics.isAndroid &&
+        diagnostics.fullScreenIntentEnabled == false;
+
+    if (notificationsDenied || syncState.needsRepair || exactUnavailable) {
+      return _ReadinessSummaryData(
+        title: 'Needs setup',
+        body:
+            'เปิด notification permission, exact alarm และรีซิงก์ queue ก่อนคาดหวังให้การเตือนตรงเวลา',
+        backgroundColor: Colors.red.shade100,
+        foregroundColor: Colors.red.shade900,
+      );
+    }
+
+    if (batteryRestricted ||
+        fullScreenUnavailable ||
+        diagnostics.needsDeliveryAttention) {
+      return _ReadinessSummaryData(
+        title: 'Ready with caveats',
+        body:
+            'ระบบเตือนใช้งานได้แล้ว แต่เครื่องยังมีข้อจำกัดด้าน battery policy, full-screen, หรือยังมี observed drift อยู่',
+        backgroundColor: Colors.orange.shade100,
+        foregroundColor: Colors.orange.shade900,
+      );
+    }
+
+    return _ReadinessSummaryData(
+      title: 'Ready',
+      body:
+          'เครื่องนี้พร้อมสำหรับ reminder แบบ exact แล้ว ถ้ามีการเลื่อนเวลาเพิ่ม ให้ดู Last observed drift เป็นหลัก',
+      backgroundColor: Colors.green.shade100,
+      foregroundColor: Colors.green.shade900,
+    );
+  }
+
+  List<String> _buildTroubleshootingItems(ReminderSyncState syncState) {
+    final items = <String>[];
+    if (diagnostics.notificationsEnabled == false) {
+      items.add(
+        'เปิดสิทธิ์แจ้งเตือนของแอปก่อน ไม่เช่นนั้นคิวจะถูกสร้างแต่ระบบจะแสดงแจ้งเตือนไม่ได้',
+      );
+    }
+    if (diagnostics.isAndroid && diagnostics.exactAlarmsEnabled == false) {
+      items.add(
+        'เปิด exact alarm เพื่อให้เวลาตรงขึ้น ถ้าไม่เปิดระบบจะ fallback เป็น inexact scheduling',
+      );
+    }
+    if (diagnostics.isAndroid &&
+        diagnostics.ignoresBatteryOptimizations == false) {
+      items.add(
+        'ตั้ง Battery เป็น Unrestricted และเปิด Auto-start/Background activity ถ้าเครื่องมีเมนูนี้',
+      );
+    }
+    if (appState.settings.alertMode == AlertMode.exactFullScreen &&
+        diagnostics.isAndroid &&
+        diagnostics.fullScreenIntentEnabled == false) {
+      items.add(
+        'อนุญาต Full-screen intent ถ้าต้องการให้โหมด exact + full-screen พยายามเปิด Alarm screen',
+      );
+    }
+    if (syncState.needsRepair) {
+      items.add('กด รีซิงก์ reminder ตอนนี้ ถ้า queue ยังไม่ healthy');
+    }
+    if (diagnostics.needsDeliveryAttention) {
+      items.add(
+        'ถ้ายังหน่วงแม้ทุกอย่างพร้อมแล้ว ให้ล็อกแอปไว้ใน recent apps และปิดโหมดประหยัดพลังงานของผู้ผลิต',
+      );
+    }
+    if (items.isEmpty && diagnostics.isAndroid) {
+      items.add(
+        'ไม่พบจุดที่ต้องแก้ทันที ถ้ามีอาการหน่วงเพิ่ม ให้สังเกต Last observed drift แล้วค่อยไล่เช็ก OEM settings ต่อ',
+      );
+    }
+    return items;
+  }
+}
+
+class _ReadinessSummaryData {
+  const _ReadinessSummaryData({
+    required this.title,
+    required this.body,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final String title;
+  final String body;
+  final Color backgroundColor;
+  final Color foregroundColor;
 }
 
 class _StatusRow extends StatelessWidget {

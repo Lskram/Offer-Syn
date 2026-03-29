@@ -78,6 +78,12 @@ abstract final class AppKeys {
   static const settingsResyncReminders = ValueKey<String>(
     'settings.resyncReminders',
   );
+  static const settingsReadinessSummary = ValueKey<String>(
+    'settings.readinessSummary',
+  );
+  static const settingsTroubleshooting = ValueKey<String>(
+    'settings.troubleshooting',
+  );
   static const settingsRequestExactAlarm = ValueKey<String>(
     'settings.requestExactAlarm',
   );
