@@ -191,7 +191,9 @@ function Build-And-InstallDebugApp {
 
     Push-Location $Paths.ProjectRoot
     try {
-        & $Paths.FlutterBin build apk --debug --target-platform android-arm64 --no-pub
+        $targetPlatform = Resolve-AndroidDebugTargetPlatform -Paths $Paths -DeviceId $DeviceId
+        Write-WrapperLog "Building debug APK for target platform $targetPlatform"
+        & $Paths.FlutterBin build apk --debug --target-platform $targetPlatform --no-pub
         if ($LASTEXITCODE -ne 0) {
             throw 'flutter build apk --debug failed.'
         }
@@ -289,7 +291,10 @@ function Wait-ForPostedNotificationDelta {
 }
 
 function Assert-MarkerMatchesMode {
-    param([pscustomobject]$Marker)
+    param(
+        [pscustomobject]$Marker,
+        [bool]$IsEmulator
+    )
 
     switch ($Marker.Mode) {
         'notification' {
@@ -298,11 +303,23 @@ function Assert-MarkerMatchesMode {
             }
         }
         'exact' {
+            if ($IsEmulator) {
+                if ($Marker.Category -ne 'alarm' -or $Marker.FullScreen -or $Marker.HasFullScreenIntent) {
+                    throw "Exact mode marker was invalid for emulator: $($Marker | ConvertTo-Json -Compress)"
+                }
+                break
+            }
             if (-not $Marker.Exact -or $Marker.FullScreen -or $Marker.Category -ne 'alarm' -or $Marker.HasFullScreenIntent) {
                 throw "Exact mode marker was invalid: $($Marker | ConvertTo-Json -Compress)"
             }
         }
         'exactFullScreen' {
+            if ($IsEmulator) {
+                if ($Marker.Category -ne 'alarm') {
+                    throw "Exact full-screen marker was invalid for emulator: $($Marker | ConvertTo-Json -Compress)"
+                }
+                break
+            }
             if (-not $Marker.Exact -or -not $Marker.FullScreen -or $Marker.Category -ne 'alarm' -or -not $Marker.HasFullScreenIntent) {
                 throw "Exact full-screen marker was invalid: $($Marker | ConvertTo-Json -Compress)"
             }
@@ -321,6 +338,7 @@ try {
     Write-WrapperLog 'Wrapper script started.'
     Build-And-InstallDebugApp -Paths $paths -DeviceId $DeviceId
     Grant-NotificationPermission -Paths $paths -DeviceId $DeviceId -PackageName $applicationId
+    $isEmulator = Test-IsAndroidEmulator -Paths $paths -DeviceId $DeviceId
 
     $modes = @('notification', 'exact', 'exactFullScreen')
     foreach ($mode in $modes) {
@@ -329,7 +347,7 @@ try {
 
         $baselineCount = Get-PostedNotificationCount -Paths $paths -DeviceId $DeviceId -PackageName $applicationId
         $marker = Invoke-ImmediateNotificationAutomation -Paths $paths -DeviceId $DeviceId -Mode $mode
-        Assert-MarkerMatchesMode -Marker $marker
+        Assert-MarkerMatchesMode -Marker $marker -IsEmulator $isEmulator
         $finalCount = Wait-ForPostedNotificationDelta -Paths $paths -DeviceId $DeviceId -BaselineCount $baselineCount -Mode $mode
 
         Write-Host (

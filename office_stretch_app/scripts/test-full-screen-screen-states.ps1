@@ -121,7 +121,9 @@ function Build-And-InstallDebugApp {
 
     Push-Location $Paths.ProjectRoot
     try {
-        & $Paths.FlutterBin build apk --debug --target-platform android-arm64 --no-pub
+        $targetPlatform = Resolve-AndroidDebugTargetPlatform -Paths $Paths -DeviceId $DeviceId
+        Write-WrapperLog "Building debug APK for target platform $targetPlatform"
+        & $Paths.FlutterBin build apk --debug --target-platform $targetPlatform --no-pub
         if ($LASTEXITCODE -ne 0) {
             throw 'flutter build apk --debug failed.'
         }

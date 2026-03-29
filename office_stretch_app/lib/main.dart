@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -19,9 +21,9 @@ Future<void> main() async {
   await appState.initialize();
   await initializeAppLaunchBridge(appState);
   await initializeSystemEventBridge(appState);
-  await runPendingDeviceAutomation(appState);
 
   runApp(OfficeStretchApp(appState: appState));
+  unawaited(runPendingDeviceAutomation(appState));
 }
 
 ReminderScheduler _createReminderScheduler() {

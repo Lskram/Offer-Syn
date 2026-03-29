@@ -120,9 +120,11 @@ Future<void> _applyAutomationBaseline({
   required DeviceAutomationCommand command,
   required UserProfile profile,
 }) async {
-  await appState.requestNotificationPermission();
-  await appState.waitForIdle();
-  _emitAutomationLog('AUTOMATION_STEP permission_requested');
+  // Device scripts grant runtime permission from ADB before launch.
+  // Avoid requesting permissions again here because that can stall
+  // automation before the Flutter UI is fully running on emulators.
+  await appState.refreshReminderDiagnostics();
+  _emitAutomationLog('AUTOMATION_STEP diagnostics_refreshed');
 
   appState.savePlan(
     profile: profile,

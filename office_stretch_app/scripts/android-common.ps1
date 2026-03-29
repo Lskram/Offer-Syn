@@ -220,6 +220,46 @@ function Build-Install-And-LaunchApp {
     }
 }
 
+function Resolve-AndroidDebugTargetPlatform {
+    param(
+        [pscustomobject]$Paths,
+        [string]$DeviceId
+    )
+
+    $abiList = (& $Paths.Adb -s $DeviceId shell getprop ro.product.cpu.abilist 2>$null).Trim()
+    if (-not $abiList) {
+        $abiList = (& $Paths.Adb -s $DeviceId shell getprop ro.product.cpu.abi 2>$null).Trim()
+    }
+
+    if ($abiList -match 'x86_64') {
+        return 'android-x64'
+    }
+
+    if ($abiList -match 'arm64-v8a') {
+        return 'android-arm64'
+    }
+
+    if ($abiList -match 'armeabi-v7a') {
+        return 'android-arm'
+    }
+
+    return 'android-arm64'
+}
+
+function Test-IsAndroidEmulator {
+    param(
+        [pscustomobject]$Paths,
+        [string]$DeviceId
+    )
+
+    if ($DeviceId -like 'emulator-*') {
+        return $true
+    }
+
+    $qemu = (& $Paths.Adb -s $DeviceId shell getprop ro.kernel.qemu 2>$null).Trim()
+    return $qemu -eq '1'
+}
+
 function Invoke-AndroidSmokeTest {
     param(
         [pscustomobject]$Paths,
